@@ -1,0 +1,13 @@
+{
+  "name": "buspoint-web",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "landing": "npm run dev --workspace=apps/landing",
+    "super-admin": "npm run dev --workspace=apps/super-admin",
+    "school-admin": "npm run dev --workspace=apps/school-admin",
+    "build:all": "npm run build --workspaces"
+  }
+}
