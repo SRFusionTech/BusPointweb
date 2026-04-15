@@ -1,3 +1,5 @@
+import { broadcastDashboardSync } from './dashboardSync';
+
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000/api';
 
 export function getToken(): string | null {
@@ -29,6 +31,7 @@ function camelizeKeys(value: any): any {
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken();
+  const method = (options.method ?? 'GET').toUpperCase();
   const res = await fetch(`${BASE}${path}`, {
     ...options,
     headers: {
@@ -40,6 +43,9 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: res.statusText }));
     throw new Error(err.message ?? 'Request failed');
+  }
+  if (method !== 'GET' && method !== 'HEAD') {
+    broadcastDashboardSync();
   }
   if (res.status === 204) return undefined as T;
   const json = await res.json();

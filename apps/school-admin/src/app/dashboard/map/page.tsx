@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { RefreshCw, Bus, MapPin, Navigation } from 'lucide-react';
 import { api, getSchool } from '@/lib/api';
+import { useDashboardAutoRefresh } from '@/components/useDashboardAutoRefresh';
 
 const STATUS_COLOR: Record<string, string> = {
   started:   'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
@@ -22,46 +23,91 @@ const STATUS_LABEL: Record<string, string> = {
 export default function MapPage() {
   const school  = getSchool();
   const mapRef  = useRef<HTMLDivElement>(null);
-  const leaflet = useRef<any>(null);
   const mapInst = useRef<any>(null);
   const markers = useRef<any[]>([]);
+  const infoWindow = useRef<any>(null);
 
   const [buses,     setBuses]     = useState<any[]>([]);
   const [selected,  setSelected]  = useState<any | null>(null);
   const [loading,   setLoading]   = useState(true);
   const [mapReady,  setMapReady]  = useState(false);
+  const [mapError,  setMapError]  = useState('');
 
-  /* ── Load Leaflet from CDN once ── */
+  const googleMapsKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? '';
+
+  const createBusIcon = (color: string) => {
+    const svg = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="42" height="42" viewBox="0 0 42 42" fill="none">
+        <defs>
+          <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="rgba(0,0,0,0.35)"/>
+          </filter>
+        </defs>
+        <g filter="url(#shadow)">
+          <rect x="10" y="7" width="22" height="26" rx="6" fill="${color}"/>
+          <rect x="13" y="11" width="16" height="9" rx="2" fill="#ffffff" fill-opacity="0.88"/>
+          <rect x="13" y="22" width="5" height="4" rx="1" fill="#ffffff" fill-opacity="0.82"/>
+          <rect x="20.5" y="22" width="5" height="4" rx="1" fill="#ffffff" fill-opacity="0.82"/>
+          <rect x="28" y="22" width="1" height="4" rx="0.5" fill="#ffffff" fill-opacity="0.82"/>
+          <circle cx="15" cy="32" r="3" fill="#1e293b"/>
+          <circle cx="27" cy="32" r="3" fill="#1e293b"/>
+        </g>
+      </svg>
+    `.trim();
+    return {
+      url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+      scaledSize: new google.maps.Size(34, 34),
+      anchor: new google.maps.Point(17, 17),
+    };
+  };
+
+  /* ── Load Google Maps JS once ── */
   useEffect(() => {
-    // If Leaflet JS is already available (e.g. StrictMode double-invoke), just signal ready.
-    if ((window as any).L) { setMapReady(true); return; }
-
-    if (!document.getElementById('leaflet-css')) {
-      const link = document.createElement('link');
-      link.id   = 'leaflet-css';
-      link.rel  = 'stylesheet';
-      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-      document.head.appendChild(link);
+    if ((window as any).google?.maps) {
+      setMapReady(true);
+      return;
     }
 
-    if (!document.getElementById('leaflet-js')) {
-      const script = document.createElement('script');
-      script.id  = 'leaflet-js';
-      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-      script.onload = () => setMapReady(true);
-      document.head.appendChild(script);
+    if (!googleMapsKey) {
+      setMapError('Missing Google Maps API key.');
+      return;
     }
+
+    if (document.getElementById('google-maps-js')) return;
+
+    const script = document.createElement('script');
+    script.id = 'google-maps-js';
+    script.async = true;
+    script.defer = true;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${googleMapsKey}&v=weekly`;
+    script.onload = () => setMapReady(true);
+    script.onerror = () => setMapError('Failed to load Google Maps.');
+    document.head.appendChild(script);
   }, []);
 
-  /* ── Initialize map once Leaflet is ready ── */
+  /* ── Initialize map once Google Maps is ready ── */
   useEffect(() => {
     if (!mapReady || !mapRef.current || mapInst.current) return;
-    const L = (window as any).L;
-    leaflet.current = L;
-    mapInst.current = L.map(mapRef.current, { zoomControl: true }).setView([20.5937, 78.9629], 5);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors',
-    }).addTo(mapInst.current);
+
+    const google = (window as any).google;
+    if (!google?.maps) return;
+
+    mapInst.current = new google.maps.Map(mapRef.current, {
+      center: { lat: 20.5937, lng: 78.9629 },
+      zoom: 5,
+      mapTypeControl: false,
+      streetViewControl: false,
+      fullscreenControl: false,
+      clickableIcons: false,
+      gestureHandling: 'greedy',
+      zoomControl: true,
+      styles: [
+        { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+        { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+      ],
+    });
+
+    infoWindow.current = new google.maps.InfoWindow();
   }, [mapReady]);
 
   /* ── Fetch bus data ── */
@@ -75,32 +121,47 @@ export default function MapPage() {
   };
 
   useEffect(() => { load(); }, []);
+  useDashboardAutoRefresh(load);
 
   /* ── Place / update markers whenever buses or map changes ── */
   useEffect(() => {
-    if (!mapInst.current || !leaflet.current || !Array.isArray(buses)) return;
-    const L = leaflet.current;
+    if (!mapInst.current || !(window as any).google?.maps || !Array.isArray(buses)) return;
+    const google = (window as any).google;
 
-    // Remove old markers
-    markers.current.forEach(m => m.remove());
+    markers.current.forEach((m) => m.setMap(null));
     markers.current = [];
 
     const withGps = buses.filter(b => b.lastLat && b.lastLng);
     withGps.forEach(b => {
       const color = ['started','at_school','returning'].includes(b.status) ? '#10b981' : '#64748b';
-      const icon = L.divIcon({
-        html: `<div style="background:${color};width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.4)"></div>`,
-        iconSize: [28, 28], iconAnchor: [14, 28], className: '',
+      const marker = new google.maps.Marker({
+        position: { lat: b.lastLat, lng: b.lastLng },
+        map: mapInst.current,
+        icon: createBusIcon(color),
+        title: b.routeName,
       });
-      const m = L.marker([b.lastLat, b.lastLng], { icon })
-        .addTo(mapInst.current)
-        .bindPopup(`<b>${b.routeName}</b><br>${b.plateNumber}<br>Status: ${STATUS_LABEL[b.status] ?? b.status}`);
-      markers.current.push(m);
+
+      marker.addListener('click', () => {
+        setSelected(b);
+        if (infoWindow.current) {
+          infoWindow.current.setContent(`
+            <div style="font-family:system-ui,sans-serif;min-width:160px">
+              <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:4px">${b.routeName}</div>
+              <div style="font-size:12px;color:#475569;margin-bottom:6px">${b.plateNumber}</div>
+              <div style="font-size:12px;font-weight:600;color:#22c55e">${STATUS_LABEL[b.status] ?? b.status}</div>
+            </div>
+          `);
+          infoWindow.current.open({ map: mapInst.current, anchor: marker });
+        }
+      });
+
+      markers.current.push(marker);
     });
 
     if (withGps.length > 0) {
-      const group = L.featureGroup(markers.current);
-      mapInst.current.fitBounds(group.getBounds().pad(0.3));
+      const bounds = new google.maps.LatLngBounds();
+      withGps.forEach((b) => bounds.extend({ lat: b.lastLat, lng: b.lastLng }));
+      mapInst.current.fitBounds(bounds, 48);
     }
   }, [buses, mapReady]);
 
@@ -147,7 +208,8 @@ export default function MapPage() {
                   onClick={() => {
                     setSelected(b);
                     if (b.lastLat && b.lastLng && mapInst.current) {
-                      mapInst.current.setView([b.lastLat, b.lastLng], 14);
+                      mapInst.current.panTo({ lat: b.lastLat, lng: b.lastLng });
+                      mapInst.current.setZoom(14);
                     }
                   }}
                   className={`w-full text-left px-4 py-3.5 hover:bg-slate-800/60 transition-colors ${selected?.id === b.id ? 'bg-slate-800/60' : ''}`}>
@@ -180,11 +242,19 @@ export default function MapPage() {
 
         {/* Map */}
         <div className="flex-1 bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden relative">
-          {!mapReady && (
+          {!mapReady && !mapError && (
             <div className="absolute inset-0 flex items-center justify-center z-10 bg-slate-900">
               <div className="flex flex-col items-center gap-3">
                 <div className="w-8 h-8 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
                 <span className="text-slate-500 text-sm">Loading map…</span>
+              </div>
+            </div>
+          )}
+          {mapError && (
+            <div className="absolute inset-0 flex items-center justify-center z-10 bg-slate-900">
+              <div className="text-center px-6">
+                <div className="text-white font-semibold mb-2">Google Maps could not load</div>
+                <div className="text-slate-400 text-sm">{mapError}</div>
               </div>
             </div>
           )}

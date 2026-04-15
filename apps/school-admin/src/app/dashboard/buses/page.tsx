@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Bus, Plus, RefreshCw, MoreVertical, Pencil, Trash2, UserCheck, UserX } from 'lucide-react';
 import { api, getSchool } from '@/lib/api';
+import { useDashboardAutoRefresh } from '@/components/useDashboardAutoRefresh';
 
 interface BusRow {
   id: string; plateNumber: string; routeName: string;
@@ -60,6 +61,7 @@ export default function BusesPage() {
   };
 
   useEffect(() => { load(); }, []);
+  useDashboardAutoRefresh(load);
 
   const openAdd = () => { setEditBus(null); setForm(EMPTY_FORM); setFormErr(''); setShowModal(true); };
   const openEdit = (b: BusRow) => {

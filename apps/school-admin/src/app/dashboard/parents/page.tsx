@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Users, Plus, RefreshCw, MoreVertical, Pencil, Trash2, CreditCard, Search } from 'lucide-react';
 import { api, getSchool } from '@/lib/api';
+import { useDashboardAutoRefresh } from '@/components/useDashboardAutoRefresh';
 
 interface Parent { id: string; name: string; email: string; phone: string | null; childName: string | null; busId: string | null; subStatus: string | null; subExpiry: string | null; isActive: boolean; }
 interface BusRow { id: string; routeName: string; plateNumber: string; }
@@ -44,6 +45,7 @@ export default function ParentsPage() {
   };
 
   useEffect(() => { load(); }, []);
+  useDashboardAutoRefresh(load);
 
   useEffect(() => {
     const q = search.toLowerCase();

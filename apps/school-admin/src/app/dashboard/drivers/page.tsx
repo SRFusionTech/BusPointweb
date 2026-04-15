@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { UserCheck, Plus, RefreshCw, MoreVertical, Pencil, Trash2, Bus } from 'lucide-react';
 import { api, getSchool } from '@/lib/api';
+import { useDashboardAutoRefresh } from '@/components/useDashboardAutoRefresh';
 
 interface Driver { id: string; name: string; email: string; phone: string | null; busId: string | null; isActive: boolean; }
 interface BusRow  { id: string; routeName: string; plateNumber: string; driverId: string | null; }
@@ -36,6 +37,7 @@ export default function DriversPage() {
   };
 
   useEffect(() => { load(); }, []);
+  useDashboardAutoRefresh(load);
 
   const openAdd = () => { setEditDriver(null); setForm(EMPTY_FORM); setFormErr(''); setShowModal(true); };
   const openEdit = (d: Driver) => {

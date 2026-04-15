@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Bus, UserCheck, Users, CreditCard, RefreshCw, Activity, Clock } from 'lucide-react';
 import { api, getSchool } from '@/lib/api';
+import { useDashboardAutoRefresh } from '@/components/useDashboardAutoRefresh';
 
 const BUS_STATUS_COLOR: Record<string, string> = {
   started:   'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
@@ -37,6 +38,7 @@ export default function SchoolDashboard() {
   };
 
   useEffect(() => { load(); }, []);
+  useDashboardAutoRefresh(load);
 
   const stats = [
     { icon: Bus,        label: 'Total Buses',          value: data?.totalBuses          ?? '—', color: 'sky' },

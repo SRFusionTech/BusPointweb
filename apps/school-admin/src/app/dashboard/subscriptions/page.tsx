@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { CreditCard, RefreshCw, CheckCircle, XCircle, Clock, Filter } from 'lucide-react';
 import { api, getSchool } from '@/lib/api';
+import { useDashboardAutoRefresh } from '@/components/useDashboardAutoRefresh';
 
 type StatusFilter = 'all' | 'active' | 'expired' | 'cancelled';
 
@@ -46,6 +47,7 @@ export default function SubscriptionsPage() {
   };
 
   useEffect(() => { load(); }, []);
+  useDashboardAutoRefresh(load);
 
   const displayed = filter === 'all' ? subs : subs.filter(s => s.status === filter);
 
