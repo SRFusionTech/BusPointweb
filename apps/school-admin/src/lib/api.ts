@@ -7,10 +7,15 @@ export function getToken(): string | null {
   return localStorage.getItem('sa_token');
 }
 
-export function getSchool(): { id: string; name: string; location: string } | null {
+export function getSchool(): { id: string; name: string; location: string; lat?: number | null; lng?: number | null } | null {
   if (typeof window === 'undefined') return null;
   try { return JSON.parse(localStorage.getItem('school') ?? 'null'); }
   catch { return null; }
+}
+
+export function setSchool(school: { id: string; name: string; location: string; lat?: number | null; lng?: number | null }) {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem('school', JSON.stringify(school));
 }
 
 // The backend uses a global SnakeCaseInterceptor — convert all response keys back to camelCase
@@ -94,4 +99,38 @@ export const api = {
     request<any>(`/subscriptions/parent/${parentId}/activate?school_id=${schoolId}`, { method: 'POST' }),
   revokeSubscription: (parentId: string) =>
     request<void>(`/subscriptions/parent/${parentId}`, { method: 'DELETE' }),
+
+  // School
+  getSchoolById: (id: string) =>
+    request<any>(`/schools/${id}`),
+  updateSchool: (id: string, body: { name?: string; location?: string; information?: string; lat?: number; lng?: number }) =>
+    request<any>(`/schools/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+
+  // Routes
+  getRoutes: (schoolId: string) =>
+    request<any[]>(`/routes?school_id=${schoolId}`),
+  getRoute: (id: string) =>
+    request<any>(`/routes/${id}`),
+  createRoute: (body: {
+    schoolId: string;
+    name: string;
+    startLat: number;
+    startLng: number;
+    startAddress?: string;
+    notes?: string;
+    stops?: Array<{ name: string; lat: number; lng: number; address?: string; stopOrder: number }>;
+  }) =>
+    request<any>('/routes', { method: 'POST', body: JSON.stringify(body) }),
+  updateRoute: (id: string, body: object) =>
+    request<any>(`/routes/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  deleteRoute: (id: string) =>
+    request<void>(`/routes/${id}`, { method: 'DELETE' }),
+  addRouteStop: (routeId: string, body: { name: string; lat: number; lng: number; address?: string; stopOrder: number }) =>
+    request<any>(`/routes/${routeId}/stops`, { method: 'POST', body: JSON.stringify(body) }),
+  updateRouteStop: (stopId: string, body: object) =>
+    request<any>(`/routes/stops/${stopId}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  deleteRouteStop: (stopId: string) =>
+    request<void>(`/routes/stops/${stopId}`, { method: 'DELETE' }),
+  reorderRouteStops: (routeId: string, stopIds: string[]) =>
+    request<any>(`/routes/${routeId}/stops/reorder`, { method: 'PATCH', body: JSON.stringify({ stopIds }) }),
 };

@@ -1,19 +1,21 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Bus, Plus, RefreshCw, MoreVertical, Pencil, Trash2, UserCheck, UserX } from 'lucide-react';
+import Link from 'next/link';
+import { Bus, Plus, RefreshCw, MoreVertical, Pencil, Trash2, UserCheck, UserX, MapPin } from 'lucide-react';
 import { api, getSchool } from '@/lib/api';
 import { useDashboardAutoRefresh } from '@/components/useDashboardAutoRefresh';
 
 interface BusRow {
-  id: string; plateNumber: string; routeName: string;
+  id: string; plateNumber: string; routeName: string; routeId: string | null;
   status: string; capacity: number | null;
   make: string | null; model: string | null; year: number | null; color: string | null;
   driverId: string | null; notes: string | null;
 }
 interface Driver { id: string; name: string; phone: string | null; }
+interface RouteOpt { id: string; name: string; stops: any[] }
 
-const EMPTY_FORM = { plateNumber: '', routeName: '', capacity: '', make: '', model: '', year: '', color: '', notes: '' };
+const EMPTY_FORM = { plateNumber: '', routeId: '', routeName: '', capacity: '', make: '', model: '', year: '', color: '', notes: '' };
 
 const STATUS_COLOR: Record<string, string> = {
   started:   'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
@@ -34,6 +36,7 @@ export default function BusesPage() {
   const school = getSchool();
   const [buses,      setBuses]      = useState<BusRow[]>([]);
   const [drivers,    setDrivers]    = useState<Driver[]>([]);
+  const [routes,     setRoutes]     = useState<RouteOpt[]>([]);
   const [loading,    setLoading]    = useState(true);
   const [showModal,  setShowModal]  = useState(false);
   const [editBus,    setEditBus]    = useState<BusRow | null>(null);
@@ -55,8 +58,14 @@ export default function BusesPage() {
     if (!school?.id) return;
     setLoading(true);
     try {
-      const [b, d] = await Promise.all([api.getBuses(school.id), api.getDrivers(school.id)]);
-      setBuses(Array.isArray(b) ? b : []); setDrivers(Array.isArray(d) ? d : []);
+      const [b, d, r] = await Promise.all([
+        api.getBuses(school.id),
+        api.getDrivers(school.id),
+        api.getRoutes(school.id),
+      ]);
+      setBuses(Array.isArray(b) ? b : []);
+      setDrivers(Array.isArray(d) ? d : []);
+      setRoutes(Array.isArray(r) ? r : []);
     } catch { } finally { setLoading(false); }
   };
 
@@ -66,16 +75,34 @@ export default function BusesPage() {
   const openAdd = () => { setEditBus(null); setForm(EMPTY_FORM); setFormErr(''); setShowModal(true); };
   const openEdit = (b: BusRow) => {
     setEditBus(b);
-    setForm({ plateNumber: b.plateNumber, routeName: b.routeName, capacity: b.capacity?.toString() ?? '',
-      make: b.make ?? '', model: b.model ?? '', year: b.year?.toString() ?? '', color: b.color ?? '', notes: b.notes ?? '' });
+    setForm({
+      plateNumber: b.plateNumber,
+      routeId: b.routeId ?? '',
+      routeName: b.routeName,
+      capacity: b.capacity?.toString() ?? '',
+      make: b.make ?? '', model: b.model ?? '',
+      year: b.year?.toString() ?? '', color: b.color ?? '', notes: b.notes ?? '',
+    });
     setFormErr(''); setShowModal(true); setOpenMenu(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); setFormErr(''); setSubmitting(true);
     try {
-      const body: any = {
-        plateNumber: form.plateNumber, routeName: form.routeName, schoolId: school!.id,
+      // When a structured route is selected, sync routeName from it so list views stay consistent.
+      const selectedRoute = form.routeId ? routes.find(r => r.id === form.routeId) : null;
+      const effectiveRouteName = selectedRoute?.name ?? form.routeName;
+      if (!effectiveRouteName) {
+        setFormErr('Select a route or type a route name.');
+        setSubmitting(false);
+        return;
+      }
+
+      // Fields common to both create and update.
+      const common: any = {
+        plateNumber: form.plateNumber,
+        routeName: effectiveRouteName,
+        routeId: form.routeId || null,
         ...(form.capacity ? { capacity: Number(form.capacity) } : {}),
         ...(form.make ? { make: form.make } : {}),
         ...(form.model ? { model: form.model } : {}),
@@ -83,8 +110,16 @@ export default function BusesPage() {
         ...(form.color ? { color: form.color } : {}),
         ...(form.notes ? { notes: form.notes } : {}),
       };
-      if (editBus) { await api.updateBus(editBus.id, body); showFlash('Bus updated.'); }
-      else         { await api.createBus(body); showFlash('Bus added.'); }
+
+      if (editBus) {
+        // UpdateBusDto omits schoolId on purpose — sending it trips
+        // forbidNonWhitelisted in the validator.
+        await api.updateBus(editBus.id, common);
+        showFlash('Bus updated.');
+      } else {
+        await api.createBus({ ...common, schoolId: school!.id });
+        showFlash('Bus added.');
+      }
       setShowModal(false); await load();
     } catch (err: any) { setFormErr(err.message ?? 'Failed to save bus.'); }
     finally { setSubmitting(false); }
@@ -171,7 +206,18 @@ export default function BusesPage() {
                         <Bus size={13} className="text-white" />
                       </div>
                       <div>
-                        <div className="font-semibold text-white">{b.routeName}</div>
+                        <div className="font-semibold text-white flex items-center gap-2">
+                          {b.routeName}
+                          {b.routeId ? (
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-purple-300 bg-purple-500/15 border border-purple-500/20 rounded px-1.5 py-0.5">
+                              Mapped
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded px-1.5 py-0.5">
+                              No route
+                            </span>
+                          )}
+                        </div>
                         <div className="text-xs text-slate-500">{b.plateNumber}</div>
                       </div>
                     </div>
@@ -240,10 +286,42 @@ export default function BusesPage() {
                   className="w-full bg-slate-800 border border-slate-700 focus:border-purple-500 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-600 outline-none" />
               </div>
               <div className="col-span-2">
-                <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Route Name *</label>
-                <input required value={form.routeName} onChange={e => setForm({...form, routeName: e.target.value})}
-                  placeholder="e.g. Morning Route A"
-                  className="w-full bg-slate-800 border border-slate-700 focus:border-purple-500 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-600 outline-none" />
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Route *</label>
+                  <Link href="/dashboard/routes" target="_blank" className="text-[11px] font-semibold text-purple-400 hover:text-purple-300">
+                    + Create a new route
+                  </Link>
+                </div>
+                {routes.length > 0 ? (
+                  <select
+                    value={form.routeId}
+                    onChange={e => {
+                      const id = e.target.value;
+                      const r = routes.find(r => r.id === id);
+                      setForm({ ...form, routeId: id, routeName: r?.name ?? form.routeName });
+                    }}
+                    className="w-full bg-slate-800 border border-slate-700 focus:border-purple-500 rounded-xl px-4 py-2.5 text-sm text-white outline-none">
+                    <option value="">— Pick a configured route —</option>
+                    {routes.map(r => (
+                      <option key={r.id} value={r.id}>{r.name} · {r.stops?.length ?? 0} stops</option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="px-4 py-3 rounded-xl border border-dashed border-slate-700 text-xs text-slate-500 flex items-center gap-2">
+                    <MapPin size={13} />
+                    No routes configured yet. <Link href="/dashboard/routes" className="text-purple-400 hover:text-purple-300 font-semibold">Create one →</Link>
+                  </div>
+                )}
+
+                <div className="mt-2">
+                  <label className="block text-[11px] font-semibold text-slate-500 mb-1.5 uppercase tracking-wider">Or label</label>
+                  <input
+                    value={form.routeName}
+                    onChange={e => setForm({...form, routeName: e.target.value})}
+                    placeholder={form.routeId ? 'Inherited from route' : 'e.g. Morning Route A'}
+                    disabled={!!form.routeId}
+                    className="w-full bg-slate-800 border border-slate-700 focus:border-purple-500 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-600 outline-none disabled:opacity-60" />
+                </div>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Capacity</label>

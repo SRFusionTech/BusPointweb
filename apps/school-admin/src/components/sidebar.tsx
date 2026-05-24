@@ -1,6 +1,6 @@
 'use client';
 
-import { MapPin, LayoutDashboard, Bus, Users, UserCheck, CreditCard, Map, LogOut, Menu, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { MapPin, LayoutDashboard, Bus, Users, UserCheck, CreditCard, Map, Route as RouteIcon, LogOut, Menu, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { getSchool } from '@/lib/api';
@@ -9,6 +9,7 @@ import { useState, useEffect } from 'react';
 const nav = [
   { icon: LayoutDashboard, label: 'Dashboard',     href: '/dashboard' },
   { icon: Bus,             label: 'Buses',          href: '/dashboard/buses' },
+  { icon: RouteIcon,       label: 'Routes',         href: '/dashboard/routes' },
   { icon: UserCheck,       label: 'Drivers',        href: '/dashboard/drivers' },
   { icon: Users,           label: 'Parents',        href: '/dashboard/parents' },
   { icon: CreditCard,      label: 'Subscriptions',  href: '/dashboard/subscriptions' },

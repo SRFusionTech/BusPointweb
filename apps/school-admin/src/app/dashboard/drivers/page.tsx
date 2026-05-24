@@ -8,7 +8,7 @@ import { useDashboardAutoRefresh } from '@/components/useDashboardAutoRefresh';
 interface Driver { id: string; name: string; email: string; phone: string | null; busId: string | null; isActive: boolean; }
 interface BusRow  { id: string; routeName: string; plateNumber: string; driverId: string | null; }
 
-const EMPTY_FORM = { firstName: '', lastName: '', phone: '', email: '' };
+const EMPTY_FORM = { firstName: '', lastName: '', phone: '' };
 
 export default function DriversPage() {
   const school = getSchool();
@@ -43,7 +43,7 @@ export default function DriversPage() {
   const openEdit = (d: Driver) => {
     setEditDriver(d);
     const [firstName, ...rest] = (d.name ?? '').split(' ');
-    setForm({ firstName, lastName: rest.join(' '), phone: d.phone ?? '', email: d.email });
+    setForm({ firstName, lastName: rest.join(' '), phone: d.phone ?? '' });
     setFormErr(''); setShowModal(true); setOpenMenu(null);
   };
 
@@ -54,14 +54,14 @@ export default function DriversPage() {
         await api.updateUser(editDriver.id, {
           firstName: form.firstName, lastName: form.lastName || 'Driver',
           name: `${form.firstName} ${form.lastName}`.trim(),
-          phone: form.phone || null, email: form.email,
+          phone: form.phone || null,
         });
         showFlash('Driver updated.');
       } else {
         await api.createUser({
           firstName: form.firstName, lastName: form.lastName || 'Driver',
           name: `${form.firstName} ${form.lastName}`.trim(),
-          email: form.email || `${form.phone}@buspoint.app`,
+          email: `${form.phone}@buspoint.app`,
           phone: form.phone,
           role: 'driver', schoolId: school!.id,
         });
@@ -203,16 +203,10 @@ export default function DriversPage() {
                   placeholder="Kumar"
                   className="w-full bg-slate-800 border border-slate-700 focus:border-purple-500 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-600 outline-none" />
               </div>
-              <div>
+              <div className="col-span-2">
                 <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Phone *</label>
                 <input required={!editDriver} value={form.phone} onChange={e => setForm({...form, phone: e.target.value})}
                   placeholder="9876543210"
-                  className="w-full bg-slate-800 border border-slate-700 focus:border-purple-500 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-600 outline-none" />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Email</label>
-                <input type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})}
-                  placeholder="Auto-generated if blank"
                   className="w-full bg-slate-800 border border-slate-700 focus:border-purple-500 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-600 outline-none" />
               </div>
             </div>
