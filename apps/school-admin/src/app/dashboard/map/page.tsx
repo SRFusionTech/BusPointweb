@@ -36,6 +36,7 @@ export default function MapPage() {
   const googleMapsKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? '';
 
   const createBusIcon = (color: string) => {
+    const g = (window as any).google;
     const svg = `
       <svg xmlns="http://www.w3.org/2000/svg" width="42" height="42" viewBox="0 0 42 42" fill="none">
         <defs>
@@ -56,8 +57,8 @@ export default function MapPage() {
     `.trim();
     return {
       url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
-      scaledSize: new google.maps.Size(34, 34),
-      anchor: new google.maps.Point(17, 17),
+      scaledSize: new g.maps.Size(34, 34),
+      anchor: new g.maps.Point(17, 17),
     };
   };
 
