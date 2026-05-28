@@ -45,6 +45,15 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       ...(options.headers ?? {}),
     },
   });
+  if (res.status === 401 && typeof window !== 'undefined') {
+    // Token missing/expired/invalid — clear session and send the user to /login.
+    localStorage.removeItem('sa_token');
+    localStorage.removeItem('school');
+    if (!window.location.pathname.startsWith('/login')) {
+      window.location.href = '/login';
+    }
+    throw new Error('Your session expired. Please sign in again.');
+  }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: res.statusText }));
     throw new Error(err.message ?? 'Request failed');

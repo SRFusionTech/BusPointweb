@@ -91,12 +91,7 @@ export default function BusesPage() {
     try {
       // When a structured route is selected, sync routeName from it so list views stay consistent.
       const selectedRoute = form.routeId ? routes.find(r => r.id === form.routeId) : null;
-      const effectiveRouteName = selectedRoute?.name ?? form.routeName;
-      if (!effectiveRouteName) {
-        setFormErr('Select a route or type a route name.');
-        setSubmitting(false);
-        return;
-      }
+      const effectiveRouteName = (selectedRoute?.name ?? form.routeName)?.trim() || null;
 
       // Fields common to both create and update.
       const common: any = {
@@ -207,7 +202,7 @@ export default function BusesPage() {
                       </div>
                       <div>
                         <div className="font-semibold text-white flex items-center gap-2">
-                          {b.routeName}
+                          {b.routeName || <span className="text-slate-500 italic font-normal">No route</span>}
                           {b.routeId ? (
                             <span className="text-[10px] font-semibold uppercase tracking-wider text-purple-300 bg-purple-500/15 border border-purple-500/20 rounded px-1.5 py-0.5">
                               Mapped
@@ -287,7 +282,7 @@ export default function BusesPage() {
               </div>
               <div className="col-span-2">
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Route *</label>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Route</label>
                   <Link href="/dashboard/routes" target="_blank" className="text-[11px] font-semibold text-purple-400 hover:text-purple-300">
                     + Create a new route
                   </Link>

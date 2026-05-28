@@ -5,6 +5,8 @@ import { useEffect, useState } from 'react';
 type Status = 'idle' | 'loading' | 'ready' | 'error';
 
 let scriptPromise: Promise<void> | null = null;
+const BILLING_HELP =
+  'Google Maps billing/auth is not enabled for this API key. Enable billing on the key project and enable Maps JavaScript API + Places API.';
 
 function loadScript(apiKey: string): Promise<void> {
   if (typeof window === 'undefined') return Promise.reject(new Error('SSR'));
@@ -36,25 +38,53 @@ export function useGoogleMaps(): { status: Status; error: string | null } {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const prevAuthFailure = (window as any).gm_authFailure as (() => void) | undefined;
+    (window as any).gm_authFailure = () => {
+      setStatus('error');
+      setError(BILLING_HELP);
+      if (typeof prevAuthFailure === 'function') prevAuthFailure();
+    };
+
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? '';
     if (!apiKey) {
       setStatus('error');
       setError('Missing NEXT_PUBLIC_GOOGLE_MAPS_API_KEY.');
-      return;
+      return () => {
+        (window as any).gm_authFailure = prevAuthFailure;
+      };
     }
 
     if ((window as any).google?.maps?.places) {
       setStatus('ready');
-      return;
+      return () => {
+        (window as any).gm_authFailure = prevAuthFailure;
+      };
     }
 
     setStatus('loading');
     loadScript(apiKey)
-      .then(() => setStatus('ready'))
+      .then(() => {
+        // Script can load even when the key is blocked; verify APIs exist.
+        if (!(window as any).google?.maps) {
+          setStatus('error');
+          setError('Google Maps loaded incompletely. Check API key restrictions and enabled APIs.');
+          return;
+        }
+        if (!(window as any).google?.maps?.places) {
+          setStatus('error');
+          setError('Places API is unavailable. Enable Places API and billing for this key project.');
+          return;
+        }
+        setStatus('ready');
+      })
       .catch((err) => {
         setStatus('error');
         setError(err?.message ?? 'Failed to load Google Maps.');
       });
+
+    return () => {
+      (window as any).gm_authFailure = prevAuthFailure;
+    };
   }, []);
 
   return { status, error };

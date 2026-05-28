@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { X, Check, ChevronLeft, School, MapPin, Flag, Users, AlertCircle } from 'lucide-react';
+import { X, Check, ChevronLeft, School, MapPin, Flag, Users, AlertCircle, Sparkles, PencilLine } from 'lucide-react';
 import MapPicker, { PinnedPoint, LatLng } from './MapPicker';
 import { api, getSchool, setSchool } from '@/lib/api';
 
@@ -50,6 +50,8 @@ export default function RouteWizard({ open, onClose, onCreated, editRouteId }: P
   /* Route meta */
   const [routeName, setRouteName] = useState('');
   const [notes, setNotes] = useState('');
+  const [renameIndex, setRenameIndex] = useState<number | null>(null);
+  const [renameValue, setRenameValue] = useState('');
 
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -59,6 +61,8 @@ export default function RouteWizard({ open, onClose, onCreated, editRouteId }: P
     if (!open) return;
     setError('');
     setStep(0);
+    setRenameIndex(null);
+    setRenameValue('');
 
     if (!school?.id) {
       setError('No school in session. Please log in again.');
@@ -200,6 +204,48 @@ export default function RouteWizard({ open, onClose, onCreated, editRouteId }: P
 
   const StepIcon = STEPS[step].Icon;
 
+  const renameStop = (idx: number) => {
+    const point = stops[idx];
+    if (!point) return;
+    setRenameIndex(idx);
+    setRenameValue(point.label ?? point.address ?? `Pickup point ${idx + 1}`);
+  };
+
+  const saveStopName = () => {
+    if (renameIndex == null) return;
+    const updated = [...stops];
+    updated[renameIndex] = {
+      ...updated[renameIndex],
+      label: renameValue.trim() || `Pickup point ${renameIndex + 1}`,
+    };
+    setStops(updated);
+    setRenameIndex(null);
+    setRenameValue('');
+  };
+
+  const moveStop = (from: number, to: number) => {
+    if (to < 0 || to >= stops.length || from === to) return;
+    const next = [...stops];
+    const [item] = next.splice(from, 1);
+    next.splice(to, 0, item);
+    setStops(next);
+  };
+
+  const checklist = [
+    {
+      title: 'School pin confirmed',
+      done: Boolean(schoolPoint && schoolPoint.lat && schoolPoint.lng),
+    },
+    {
+      title: 'Route start set',
+      done: Boolean(routeName.trim() && startPoint && startPoint.lat && startPoint.lng),
+    },
+    {
+      title: 'Pickup points added',
+      done: stops.length > 0,
+    },
+  ];
+
   return (
     <div className="fixed inset-0 z-50 flex items-stretch lg:items-center justify-center p-0 lg:p-6">
       <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={onClose} />
@@ -265,6 +311,22 @@ export default function RouteWizard({ open, onClose, onCreated, editRouteId }: P
 
           <p className="text-sm text-slate-400 mb-5 leading-relaxed">{STEPS[step].description}</p>
 
+          <div className="mb-5 rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
+            <div className="flex items-center gap-2 text-purple-300 text-xs font-semibold uppercase tracking-wider mb-3">
+              <Sparkles size={13} /> Route setup checklist
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              {checklist.map((item) => (
+                <div key={item.title} className={`rounded-xl border px-3 py-2 text-xs ${item.done ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' : 'border-slate-700 bg-slate-800/60 text-slate-400'}`}>
+                  <div className="flex items-center gap-1.5">
+                    <Check size={12} className={item.done ? 'text-emerald-300' : 'text-slate-500'} />
+                    <span className="font-medium">{item.title}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {step === 0 && (
             <MapPicker
               mode="single"
@@ -318,13 +380,8 @@ export default function RouteWizard({ open, onClose, onCreated, editRouteId }: P
                 searchPlaceholder="Search a pickup point address…"
                 hint="Order matters — pin 1 is the first stop, pin 2 the second, and so on. Drag pins to fine-tune."
                 showOrderedList
-                onSelectPoint={(idx) => {
-                  const name = window.prompt('Pickup point name', stops[idx].label ?? stops[idx].address ?? '');
-                  if (name == null) return;
-                  const next = [...stops];
-                  next[idx] = { ...next[idx], label: name };
-                  setStops(next);
-                }}
+                onSelectPoint={renameStop}
+                onMovePoint={moveStop}
                 onRemovePoint={(idx) => setStops(stops.filter((_, i) => i !== idx))}
               />
 
@@ -373,6 +430,43 @@ export default function RouteWizard({ open, onClose, onCreated, editRouteId }: P
             {!submitting && !savingSchool && <Check size={15} />}
           </button>
         </div>
+
+        {renameIndex !== null && (
+          <div className="absolute inset-0 z-30 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60" onClick={() => setRenameIndex(null)} />
+            <div className="relative w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
+              <div className="px-5 py-4 border-b border-slate-800 flex items-center gap-2 text-white font-semibold">
+                <PencilLine size={16} className="text-purple-300" />
+                Rename pickup point #{renameIndex + 1}
+              </div>
+              <div className="px-5 py-4 space-y-3">
+                <label className="text-xs uppercase tracking-wider text-slate-400 font-semibold">Pickup name</label>
+                <input
+                  value={renameValue}
+                  onChange={(e) => setRenameValue(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') saveStopName(); }}
+                  className="w-full bg-slate-800 border border-slate-700 focus:border-purple-500 rounded-xl px-4 py-2.5 text-sm text-white outline-none"
+                  placeholder="e.g. MG Road Signal"
+                  autoFocus
+                />
+              </div>
+              <div className="px-5 py-4 border-t border-slate-800 flex items-center justify-end gap-2">
+                <button
+                  onClick={() => setRenameIndex(null)}
+                  className="px-4 py-2 text-sm rounded-lg border border-slate-700 text-slate-400 hover:text-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={saveStopName}
+                  className="px-4 py-2 text-sm rounded-lg bg-purple-500 hover:bg-purple-400 text-white font-semibold"
+                >
+                  Save name
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

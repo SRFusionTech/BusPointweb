@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { RefreshCw, Bus, MapPin, Navigation } from 'lucide-react';
 import { api, getSchool } from '@/lib/api';
 import { useDashboardAutoRefresh } from '@/components/useDashboardAutoRefresh';
+import { addReconnectHandler, connectTracking } from '@/lib/trackingSocket';
 
 const STATUS_COLOR: Record<string, string> = {
   started:   'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
@@ -34,6 +35,7 @@ export default function MapPage() {
   const [mapError,  setMapError]  = useState('');
 
   const googleMapsKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? '';
+  const busIds = useMemo(() => buses.map((b) => b.id).filter(Boolean).sort().join('|'), [buses]);
 
   const createBusIcon = (color: string) => {
     const g = (window as any).google;
@@ -123,6 +125,65 @@ export default function MapPage() {
 
   useEffect(() => { load(); }, []);
   useDashboardAutoRefresh(load);
+
+  /* ── Live bus locations via Socket.io ── */
+  useEffect(() => {
+    if (!school?.id || buses.length === 0) return;
+
+    let cancelled = false;
+    let socketRef: any = null;
+    let unsubReconnect: (() => void) | null = null;
+
+    const applyLocation = (busId: string, payload: any) => {
+      const lat = payload?.lat ?? payload?.latitude;
+      const lng = payload?.lng ?? payload?.longitude;
+      if (typeof lat !== 'number' || typeof lng !== 'number') return;
+      setBuses((prev) => prev.map((b) => (b.id === busId ? {
+        ...b,
+        lastLat: lat,
+        lastLng: lng,
+        lastUpdated: payload?.timestamp ?? new Date().toISOString(),
+        status: payload?.status ?? b.status,
+      } : b)));
+    };
+
+    const joinAll = () => {
+      if (!socketRef) return;
+      for (const b of buses) {
+        if (!b?.id) continue;
+        socketRef.emit('join_bus', { busId: b.id }, (ack: { event?: string; data?: any } | undefined) => {
+          const snap = ack?.data;
+          if (!snap || snap.busId !== b.id) return;
+          applyLocation(b.id, snap);
+        });
+      }
+    };
+
+    const handleBusLocation = (evt: any) => {
+      if (!evt?.busId) return;
+      applyLocation(evt.busId, evt);
+    };
+
+    (async () => {
+      const socket = await connectTracking();
+      if (cancelled) return;
+      socketRef = socket;
+      socket.on('bus_location', handleBusLocation);
+      joinAll();
+      unsubReconnect = addReconnectHandler(joinAll);
+    })();
+
+    return () => {
+      cancelled = true;
+      if (unsubReconnect) unsubReconnect();
+      if (socketRef) {
+        socketRef.off('bus_location', handleBusLocation);
+        for (const b of buses) {
+          if (b?.id) socketRef.emit('leave_bus', { busId: b.id });
+        }
+      }
+    };
+  }, [school?.id, busIds]);
 
   /* ── Place / update markers whenever buses or map changes ── */
   useEffect(() => {
