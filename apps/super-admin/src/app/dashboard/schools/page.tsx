@@ -30,11 +30,14 @@ export default function SchoolsPage() {
   const [showDelete, setShowDelete] = useState<School | null>(null);
   const [deleting,   setDeleting]   = useState(false);
   const [actioning,  setActioning]  = useState<string | null>(null);
+  const [loadError,  setLoadError]  = useState('');
 
   const load = async () => {
     setLoading(true);
+    setLoadError('');
     try { const data = await api.getSchools(); setSchools(data); setFiltered(data); }
-    catch { } finally { setLoading(false); }
+    catch (err: any) { setLoadError(err?.message ?? 'Failed to load schools.'); }
+    finally { setLoading(false); }
   };
 
   useEffect(() => { load(); }, []);
@@ -111,6 +114,9 @@ export default function SchoolsPage() {
       {/* Flash message */}
       {actionMsg && (
         <div className="mb-4 px-4 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm">{actionMsg}</div>
+      )}
+      {loadError && (
+        <div className="mb-4 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm">{loadError}</div>
       )}
 
       {/* Search */}
