@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { MapPin, Menu, X } from 'lucide-react';
 
 const links = [
@@ -53,12 +54,12 @@ export default function Nav() {
 
         {/* Desktop CTAs */}
         <div className="hidden md:flex items-center gap-3">
-          <a
-            href="https://admin.buspoint.app"
+          <Link
+            href="/login"
             className="text-sm font-medium text-slate-400 hover:text-white transition-colors px-4 py-2"
           >
             Sign in
-          </a>
+          </Link>
           <a
             href="#request-access"
             className="text-sm font-semibold bg-sky-500 hover:bg-sky-400 text-white px-4 py-2 rounded-xl transition-colors shadow-lg shadow-sky-500/20"
@@ -90,6 +91,13 @@ export default function Nav() {
               {l.label}
             </a>
           ))}
+          <Link
+            href="/login"
+            onClick={() => setMenuOpen(false)}
+            className="text-sm font-medium text-slate-300 hover:text-white transition-colors"
+          >
+            Sign in
+          </Link>
           <a
             href="#request-access"
             onClick={() => setMenuOpen(false)}
