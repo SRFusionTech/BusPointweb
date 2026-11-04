@@ -13,8 +13,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: { default: "BusPoint", template: "%s | BusPoint" },
-  description: "Real-time school bus tracking for parents and schools.",
+  title: { default: "BusPoint by SRFusion", template: "%s | BusPoint" },
+  description:
+    "Real-time school bus tracking for parents and schools — by SRFusion.",
+  keywords: ["school bus", "live tracking", "parent app", "srfusion", "buspoint"],
+  authors: [{ name: "SRFusion", url: "https://srfusion.com" }],
 };
 
 export default function RootLayout({
