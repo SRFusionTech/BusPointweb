@@ -20,7 +20,40 @@ async function request<T>(
   return json;
 }
 
+export interface SchoolSummary {
+  id: string;
+  name: string;
+  address: string;
+  logoUrl: string | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
 export const api = {
+  schools: {
+    list: () => request<SchoolSummary[]>('/schools'),
+
+    create: (body: {
+      name: string;
+      address: string;
+      logoUrl?: string;
+      adminEmail: string;
+      adminPassword: string;
+      adminName: string;
+      adminPhone: string;
+    }) =>
+      request<{ school: SchoolSummary; admin: { email: string; name: string } }>(
+        '/schools',
+        { method: 'POST', body: JSON.stringify(body) },
+      ),
+
+    resetAdminPassword: (schoolId: string) =>
+      request<{ email: string; tempPassword: string }>(
+        `/schools/${schoolId}/reset-admin-password`,
+        { method: 'POST' },
+      ),
+  },
+
   auth: {
     webLogin: (email: string, password: string) =>
       request<{ role: string; email: string }>('/auth/web/login', {
