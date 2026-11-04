@@ -1,16 +1,29 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
+import { useAuthStore } from '@/stores/auth.store';
+import { useUiStore } from '@/stores/ui.store';
 
-type Step = 'credentials' | 'loading';
+const ROLE_REDIRECT: Record<string, string> = {
+  super_admin: '/super-admin/dashboard',
+  school_admin: '/dashboard',
+};
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
+
 type FieldError = { email?: string; password?: string; form?: string };
 
 export default function LoginPage() {
+  const router = useRouter();
+  const setUser = useAuthStore((s) => s.setUser);
+  const { showPageLoader, hidePageLoader } = useUiStore();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [step, setStep] = useState<Step>('credentials');
+  const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<FieldError>({});
 
   function validate(): boolean {
@@ -26,23 +39,34 @@ export default function LoginPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!validate()) return;
-    setStep('loading');
+    setLoading(true);
     setErrors({});
 
     try {
-      // TODO: replace with real API call
-      // const res = await api.post('/auth/login', { email, password });
-      // const { role, token } = res.data;
-      // if (role === 'super_admin') router.push('/super-admin/dashboard');
-      // else router.push('/dashboard');
+      const res = await fetch(`${API_BASE}/api/auth/web/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
+      });
 
-      // Placeholder: simulate network delay
-      await new Promise((r) => setTimeout(r, 1200));
-      setErrors({ form: 'API not connected yet — backend coming next.' });
-      setStep('credentials');
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        setErrors({ form: json.message ?? 'Invalid email or password.' });
+        return;
+      }
+
+      const { role, email: userEmail } = json.data;
+      setUser({ email: userEmail, role });
+
+      showPageLoader('Taking you in…');
+      router.push(ROLE_REDIRECT[role] ?? '/');
     } catch {
-      setErrors({ form: 'Invalid email or password.' });
-      setStep('credentials');
+      setErrors({ form: 'Could not reach the server. Please try again.' });
+    } finally {
+      setLoading(false);
+      hidePageLoader();
     }
   }
 
@@ -96,7 +120,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => { setEmail(e.target.value); setErrors((p) => ({ ...p, email: undefined })); }}
                 className={`input ${errors.email ? 'border-red-400 focus:border-red-400' : ''}`}
-                disabled={step === 'loading'}
+                disabled={loading}
               />
               {errors.email && <p className="mt-1 text-xs text-red-500">{errors.email}</p>}
             </div>
@@ -118,7 +142,7 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => { setPassword(e.target.value); setErrors((p) => ({ ...p, password: undefined })); }}
                   className={`input pr-10 ${errors.password ? 'border-red-400 focus:border-red-400' : ''}`}
-                  disabled={step === 'loading'}
+                  disabled={loading}
                 />
                 <button
                   type="button"
@@ -148,9 +172,9 @@ export default function LoginPage() {
             <button
               type="submit"
               className="btn btn-primary w-full mt-2"
-              disabled={step === 'loading'}
+              disabled={loading}
             >
-              {step === 'loading' ? (
+              {loading ? (
                 <span className="flex items-center gap-2">
                   <svg className="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M21 12a9 9 0 1 1-6.219-8.56" />
