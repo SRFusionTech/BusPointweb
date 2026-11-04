@@ -1,3 +1,5 @@
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
+
 export default function Home() {
   return (
     <main className="min-h-dvh bg-[var(--color-surface)]">
@@ -8,6 +10,7 @@ export default function Home() {
             BusPoint
           </span>
           <div className="flex items-center gap-3">
+            <ThemeToggle />
             <a href="/login" className="btn btn-ghost btn-sm">
               Sign in
             </a>

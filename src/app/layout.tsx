@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { ThemeProvider } from "@/components/ui/ThemeProvider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -20,6 +21,16 @@ export const metadata: Metadata = {
   authors: [{ name: "SRFusion", url: "https://srfusiontech.com" }],
 };
 
+// Runs before React hydrates — prevents flash of wrong theme
+const noFlashScript = `
+  (function() {
+    try {
+      var t = localStorage.getItem('buspoint-theme');
+      if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+    } catch(e) {}
+  })();
+`;
+
 export default function RootLayout({
   children,
 }: {
@@ -27,7 +38,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
-      <body>{children}</body>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: noFlashScript }} />
+      </head>
+      <body>
+        <ThemeProvider>{children}</ThemeProvider>
+      </body>
     </html>
   );
 }
