@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   description:
     "Real-time school bus tracking for parents and schools — by SRFusion.",
   keywords: ["school bus", "live tracking", "parent app", "srfusion", "buspoint"],
-  authors: [{ name: "SRFusion", url: "https://srfusion.com" }],
+  authors: [{ name: "SRFusion", url: "https://srfusiontech.com" }],
 };
 
 export default function RootLayout({
