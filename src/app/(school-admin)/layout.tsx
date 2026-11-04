@@ -1,0 +1,15 @@
+'use client';
+
+import { AuthGuard } from '@/components/layout/AuthGuard';
+import { AdminShell } from '@/components/layout/AdminShell';
+import { SCHOOL_ADMIN_NAV } from '@/components/layout/nav-items';
+
+export default function SchoolAdminLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <AuthGuard requiredRole="school_admin">
+      <AdminShell navItems={SCHOOL_ADMIN_NAV} showAccountLinks>
+        {children}
+      </AdminShell>
+    </AuthGuard>
+  );
+}
