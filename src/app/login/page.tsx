@@ -18,6 +18,7 @@ type FieldError = { email?: string; password?: string; form?: string };
 export default function LoginPage() {
   const router = useRouter();
   const setUser = useAuthStore((s) => s.setUser);
+  const setAccessTokenExpiresAt = useAuthStore((s) => s.setAccessTokenExpiresAt);
   const { showPageLoader, hidePageLoader } = useUiStore();
 
   const [email, setEmail] = useState('');
@@ -57,8 +58,9 @@ export default function LoginPage() {
         return;
       }
 
-      const { role, email: userEmail } = json.data;
+      const { role, email: userEmail, accessTokenExpiresAt } = json.data;
       setUser({ email: userEmail, role });
+      if (accessTokenExpiresAt) setAccessTokenExpiresAt(accessTokenExpiresAt);
 
       showPageLoader('Taking you in…');
       router.push(ROLE_REDIRECT[role] ?? '/');

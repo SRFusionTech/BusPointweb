@@ -12,9 +12,10 @@ export interface AuthUser {
 
 interface AuthState {
   user: AuthUser | null;
-  isLoading: boolean;
+  /** Unix ms timestamp when the current access token expires — used for proactive refresh */
+  accessTokenExpiresAt: number | null;
   setUser: (user: AuthUser | null) => void;
-  setLoading: (loading: boolean) => void;
+  setAccessTokenExpiresAt: (ts: number) => void;
   logout: () => void;
 }
 
@@ -22,16 +23,18 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
       user: null,
-      isLoading: false,
+      accessTokenExpiresAt: null,
       setUser: (user) => set({ user }),
-      setLoading: (isLoading) => set({ isLoading }),
-      logout: () => set({ user: null }),
+      setAccessTokenExpiresAt: (accessTokenExpiresAt) => set({ accessTokenExpiresAt }),
+      logout: () => set({ user: null, accessTokenExpiresAt: null }),
     }),
     {
       name: 'buspoint-auth',
       storage: createJSONStorage(() => sessionStorage),
-      // Only persist user data — isLoading is always runtime state
-      partialize: (state) => ({ user: state.user }),
+      partialize: (state) => ({
+        user: state.user,
+        accessTokenExpiresAt: state.accessTokenExpiresAt,
+      }),
     },
   ),
 );
