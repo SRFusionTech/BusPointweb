@@ -7,7 +7,7 @@ import {
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import {
-  IconArrowDown, IconArrowLeft, IconArrowUp, IconBuildingCommunity, IconCheck, IconCrosshair, IconDeviceFloppy,
+  IconAlertTriangle, IconArrowDown, IconArrowLeft, IconArrowUp, IconBuildingCommunity, IconCheck, IconCrosshair, IconDeviceFloppy,
   IconDots, IconFlag, IconFocusCentered, IconGripVertical, IconLock, IconMapPin, IconPencil, IconPlus,
   IconTrash, IconX,
 } from '@tabler/icons-react';
@@ -15,6 +15,7 @@ import { api, type MySchool, type RouteDetail } from '@/lib/api';
 import { notify, errorMessage } from '@/lib/notify';
 import { AddressAutocomplete, loadGoogleMaps } from '@/components/console/AddressAutocomplete';
 import { ConfirmDialog } from '@/components/console/ConfirmDialog';
+import { computeRoadRoute, formatDuration, type LatLng, type RoadRoute } from '@/lib/roadRoute';
 import './route-editor.css';
 
 // ─── Model ────────────────────────────────────────────────────────────────────
@@ -89,10 +90,88 @@ interface MapPoint {
   lng: number;
 }
 
+interface MapLabel extends google.maps.OverlayView {
+  setPosition(position: google.maps.LatLng | google.maps.LatLngLiteral): void;
+}
+
+let LabelOverlay: (new (position: google.maps.LatLngLiteral, text: string, kind: string, selected: boolean) => MapLabel) | null = null;
+
+/** HTML name pill drawn beside a marker. Defined lazily — OverlayView only exists once Maps has loaded. */
+function createMapLabel(position: google.maps.LatLngLiteral, text: string, kind: string, selected: boolean): MapLabel {
+  LabelOverlay ??= class extends google.maps.OverlayView {
+    private div: HTMLDivElement | null = null;
+    private position: google.maps.LatLng;
+
+    constructor(pos: google.maps.LatLngLiteral, private text: string, private kind: string, private selected: boolean) {
+      super();
+      this.position = new google.maps.LatLng(pos);
+    }
+
+    onAdd() {
+      const div = document.createElement('div');
+      div.className = 'bp-map-label';
+      div.dataset.kind = this.kind;
+      div.dataset.selected = String(this.selected);
+      div.textContent = this.text;
+      this.getPanes()?.floatPane.appendChild(div);
+      this.div = div;
+    }
+
+    draw() {
+      const point = this.getProjection()?.fromLatLngToDivPixel(this.position);
+      if (point && this.div) {
+        this.div.style.left = `${point.x}px`;
+        this.div.style.top = `${point.y}px`;
+      }
+    }
+
+    onRemove() {
+      this.div?.remove();
+      this.div = null;
+    }
+
+    setPosition(pos: google.maps.LatLng | google.maps.LatLngLiteral) {
+      this.position = pos instanceof google.maps.LatLng ? pos : new google.maps.LatLng(pos);
+      this.draw();
+    }
+  };
+  return new LabelOverlay(position, text, kind, selected);
+}
+
+/** Road-following route through the points, recomputed (debounced) when positions or order change. */
+function useRoadRoute(points: LatLng[]) {
+  const key = points.map((p) => `${p.lat.toFixed(6)},${p.lng.toFixed(6)}`).join('|');
+  const [result, setResult] = useState<{ key: string; route: RoadRoute | null } | null>(null);
+
+  useEffect(() => {
+    if (!key.includes('|')) return; // fewer than two points
+    const pts = key.split('|').map((pair) => {
+      const [lat, lng] = pair.split(',').map(Number);
+      return { lat, lng };
+    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      computeRoadRoute(pts, controller.signal)
+        .then((route) => setResult({ key, route }))
+        .catch(() => { if (!controller.signal.aborted) setResult({ key, route: null }); });
+    }, 600);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [key]);
+
+  const current = result?.key === key ? result : null;
+  return {
+    route: current?.route ?? null,
+    loading: points.length > 1 && !current,
+    failed: !!current && !current.route,
+  };
+}
+
 function RouteMap({
-  points, selected, placing, fitSignal, onPick, onSelect, onMove,
+  points, roadPath, selected, placing, fitSignal, onPick, onSelect, onMove,
 }: {
   points: MapPoint[];
+  /** Road-following path; straight lines are drawn while it loads or if routing fails */
+  roadPath: LatLng[] | null;
   selected: Selection;
   placing: boolean;
   fitSignal: number;
@@ -102,7 +181,9 @@ function RouteMap({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
-  const overlaysRef = useRef<{ markers: google.maps.Marker[]; line: google.maps.Polyline | null }>({ markers: [], line: null });
+  const markersRef = useRef<google.maps.Marker[]>([]);
+  const labelsRef = useRef<MapLabel[]>([]);
+  const linesRef = useRef<google.maps.Polyline[]>([]);
   const handlersRef = useRef({ onPick, onSelect, onMove });
   const pointsRef = useRef(points);
   const [status, setStatus] = useState<'loading' | 'ready' | 'failed'>('loading');
@@ -139,16 +220,19 @@ function RouteMap({
     return () => { cancelled = true; };
   }, []);
 
-  // Markers + connecting line
+  // Markers
   useEffect(() => {
     const map = mapRef.current;
     if (status !== 'ready' || !map) return;
-    const overlays = overlaysRef.current;
-    overlays.markers.forEach((m) => m.setMap(null));
-    overlays.line?.setMap(null);
+    markersRef.current.forEach((m) => m.setMap(null));
+    labelsRef.current.forEach((l) => l.setMap(null));
+    labelsRef.current = [];
 
-    overlays.markers = points.map((p) => {
+    markersRef.current = points.map((p) => {
       const isSelected = p.key === selected;
+      const label = createMapLabel({ lat: p.lat, lng: p.lng }, p.title, p.kind, isSelected);
+      label.setMap(map);
+      labelsRef.current.push(label);
       const marker = new google.maps.Marker({
         map,
         position: { lat: p.lat, lng: p.lng },
@@ -166,28 +250,48 @@ function RouteMap({
         },
       });
       marker.addListener('click', () => handlersRef.current.onSelect(p.key));
+      marker.addListener('drag', (e: google.maps.MapMouseEvent) => { if (e.latLng) label.setPosition(e.latLng); });
       marker.addListener('dragend', (e: google.maps.MapMouseEvent) => {
         if (e.latLng) handlersRef.current.onMove(p.key, e.latLng.lat(), e.latLng.lng());
       });
       return marker;
     });
+  }, [points, selected, status]);
 
-    overlays.line = points.length > 1
-      ? new google.maps.Polyline({
+  // Route line: road path with a white casing (Google-Maps style), or faint straight lines as a fallback
+  useEffect(() => {
+    const map = mapRef.current;
+    if (status !== 'ready' || !map) return;
+    linesRef.current.forEach((l) => l.setMap(null));
+    linesRef.current = [];
+    if (points.length < 2) return;
+
+    const arrows = [{
+      icon: { path: google.maps.SymbolPath.FORWARD_OPEN_ARROW, scale: 2.5, strokeColor: '#ffffff', strokeWeight: 2.5 },
+      offset: '60px',
+      repeat: '110px',
+    }];
+
+    if (roadPath && roadPath.length > 1) {
+      linesRef.current = [
+        new google.maps.Polyline({ map, path: roadPath, strokeColor: '#ffffff', strokeOpacity: 1, strokeWeight: 15, clickable: false, zIndex: 1 }),
+        new google.maps.Polyline({ map, path: roadPath, strokeColor: COLORS.stop, strokeOpacity: 1, strokeWeight: 10, clickable: false, zIndex: 2, icons: arrows }),
+      ];
+    } else {
+      linesRef.current = [
+        new google.maps.Polyline({
           map,
           path: points.map((p) => ({ lat: p.lat, lng: p.lng })),
           strokeColor: COLORS.stop,
-          strokeOpacity: 0.75,
-          strokeWeight: 4,
+          strokeOpacity: 0.7,
+          strokeWeight: 6,
           clickable: false,
-          icons: [{
-            icon: { path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW, scale: 2.5, strokeColor: COLORS.stop, fillColor: COLORS.stop, fillOpacity: 1 },
-            offset: '50%',
-            repeat: '140px',
-          }],
-        })
-      : null;
-  }, [points, selected, status]);
+          zIndex: 1,
+          icons: arrows,
+        }),
+      ];
+    }
+  }, [points, roadPath, status]);
 
   // Fit everything in view (first load + "Fit route" button)
   useEffect(() => {
@@ -390,7 +494,10 @@ export default function RouteEditorPage() {
     return list;
   }, [school, stops, end]);
 
-  const totalKm = distanceKm(points);
+  const road = useRoadRoute(points);
+  const tripSummary = road.route
+    ? `${(road.route.meters / 1000).toFixed(1)} km · ${formatDuration(road.route.seconds)} drive`
+    : points.length > 1 ? `~${distanceKm(points).toFixed(1)} km straight-line` : '';
 
   // ─── Edits ──────────────────────────────────────────────────────────────────
 
@@ -530,7 +637,7 @@ export default function RouteEditorPage() {
           <Text size="sm" c="dimmed" mt={2}>
             Starts at {school?.name ?? 'your school'} · {stops.length} stop{stops.length === 1 ? '' : 's'}
             {end ? ' · ends at Last Stop' : ''}
-            {totalKm > 0 ? ` · ~${totalKm.toFixed(1)} km` : ''}
+            {tripSummary ? ` · ${tripSummary}` : ''}
           </Text>
         </Box>
         <Group gap="sm">
@@ -693,6 +800,7 @@ export default function RouteEditorPage() {
         <div className="bp-route-map">
           <RouteMap
             points={points}
+            roadPath={road.route?.path ?? null}
             selected={selected}
             placing={!!target}
             fitSignal={fitSignal}
@@ -721,6 +829,24 @@ export default function RouteEditorPage() {
               </ActionIcon>
             </Tooltip>
           </div>
+
+          {(road.loading || road.failed) && (
+            <Tooltip
+              label="The Google Maps key needs the Routes API enabled to draw road-following routes."
+              disabled={!road.failed}
+              multiline
+              w={260}
+            >
+              <Paper className="bp-route-status" shadow="md" radius="xl" px="sm" py={6} withBorder>
+                <Group gap={8} wrap="nowrap">
+                  {road.loading ? <Loader size={12} /> : <IconAlertTriangle size={14} color="var(--mantine-color-orange-6)" />}
+                  <Text size="xs" fw={500}>
+                    {road.loading ? 'Calculating road route…' : 'Road route unavailable — showing straight lines'}
+                  </Text>
+                </Group>
+              </Paper>
+            </Tooltip>
+          )}
 
           {placingLabel && (
             <Paper className="bp-route-banner" shadow="lg" radius="xl" px="md" py={8} withBorder>

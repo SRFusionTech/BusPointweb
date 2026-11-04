@@ -66,6 +66,65 @@
   border-radius: var(--mantine-radius-md);
 }
 
+/* Name pill beside each map marker (positioned by an OverlayView at the marker's point) */
+.bp-map-label {
+  position: absolute;
+  transform: translate(19px, -50%);
+  max-width: 190px;
+  padding: 5px 10px 5px 8px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.92);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.35);
+  font-family: var(--mantine-font-family);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+/* Dot matching the marker colour, so name and pin read as a pair */
+.bp-map-label::before {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 6px;
+  border-radius: 50%;
+  vertical-align: 1px;
+  background: #60a5fa;
+}
+
+.bp-map-label[data-kind='school']::before {
+  background: #ffffff;
+}
+
+.bp-map-label[data-kind='end']::before {
+  background: #f87171;
+}
+
+.bp-map-label[data-selected='true'] {
+  transform: translate(22px, -50%);
+  background: #2563eb;
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.55), 0 2px 8px rgba(15, 23, 42, 0.35);
+}
+
+.bp-map-label[data-selected='true']::before {
+  background: #ffffff;
+}
+
+.bp-route-status {
+  position: absolute;
+  left: 12px;
+  bottom: 24px;
+  z-index: 2;
+}
+
 .bp-route-banner {
   position: absolute;
   left: 50%;
