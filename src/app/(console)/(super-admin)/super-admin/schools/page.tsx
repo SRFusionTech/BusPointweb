@@ -1,105 +1,59 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  ActionIcon, Anchor, Box, Button, Card, Divider, EmptyState, Group, Menu, SegmentedControl, SimpleGrid, Skeleton, Stack, Table,
-  Text, TextInput, ThemeIcon, Tooltip, VisuallyHidden,
+  ActionIcon, Box, Button, EmptyState, Group, Menu, SegmentedControl, SimpleGrid, Text, Tooltip,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import {
-  IconBuildingCommunity, IconCalendarPlus, IconCircleCheck, IconCircleOff, IconCopy, IconDots, IconKey, IconPlus,
-  IconRefresh, IconSearch, IconSettings,
+  IconBuildingCommunity, IconCalendarPlus, IconCircleCheck, IconCircleOff, IconCopy, IconDots, IconKey,
+  IconPlus, IconRefresh, IconSettings,
 } from '@tabler/icons-react';
-import { api, type SchoolSummary } from '@/lib/api';
+import { api, type SchoolSummary, type PlanSummary } from '@/lib/api';
 import { notify, errorMessage } from '@/lib/notify';
 import { PageHeader } from '@/components/console/PageHeader';
+import { DataTable, type Column } from '@/components/console/DataTable';
+import { StatusPill } from '@/components/console/StatusPill';
+import { StatCard } from '@/components/console/StatCard';
 import { AddSchoolModal } from '@/components/super-admin/AddSchoolModal';
 import { ResetPasswordModal } from '@/components/super-admin/ResetPasswordModal';
-import { formatDate, SchoolAvatar, StatusBadge } from '@/components/super-admin/school-ui';
+import { formatDate, SchoolAvatar } from '@/components/super-admin/school-ui';
 
 const DAY_MS = 86_400_000;
 const settingsHref = (id: string) => `/super-admin/schools/${id}/settings`;
 
 type StatusFilter = 'all' | 'active' | 'inactive';
 
-// ─── KPI tile ────────────────────────────────────────────────────────────────
-function StatCard({ label, value, icon: Icon, color, loading }: {
-  label: string; value: number; icon: typeof IconBuildingCommunity; color: string; loading: boolean;
-}) {
-  return (
-    <Card padding="md">
-      <Group justify="space-between" align="flex-start" wrap="nowrap">
-        <div>
-          <Text size="xs" c="dimmed" fw={500}>{label}</Text>
-          {loading ? <Skeleton h={28} w={48} mt={6} /> : <Text fz={26} fw={600} mt={2}>{value}</Text>}
-        </div>
-        <ThemeIcon variant="light" color={color} size={36} radius="md"><Icon size={18} stroke={1.75} /></ThemeIcon>
-      </Group>
-    </Card>
-  );
-}
-
-// ─── Row actions — add future actions here ───────────────────────────────────
-function RowActions({ school, onReset }: { school: SchoolSummary; onReset: () => void }) {
-  const router = useRouter();
-
-  function copyId() {
-    navigator.clipboard.writeText(school.id)
-      .then(() => notify.success('School ID copied to clipboard.'))
-      .catch(() => notify.error('Could not copy to clipboard.'));
-  }
-
-  return (
-    <Menu position="bottom-end" width={220}>
-      <Menu.Target>
-        <ActionIcon variant="subtle" color="gray" aria-label={`Actions for ${school.name}`}>
-          <IconDots size={18} />
-        </ActionIcon>
-      </Menu.Target>
-      <Menu.Dropdown>
-        <Menu.Item leftSection={<IconSettings size={16} />} onClick={() => router.push(settingsHref(school.id))}>Settings</Menu.Item>
-        <Menu.Item leftSection={<IconKey size={16} />} onClick={onReset}>Reset admin password</Menu.Item>
-        <Menu.Divider />
-        <Menu.Item leftSection={<IconCopy size={16} />} onClick={copyId}>Copy school ID</Menu.Item>
-      </Menu.Dropdown>
-    </Menu>
-  );
-}
-
-// ─── Page ────────────────────────────────────────────────────────────────────
 export default function SchoolsPage() {
+  const router = useRouter();
   const [schools, setSchools] = useState<SchoolSummary[]>([]);
+  const [plans, setPlans] = useState<PlanSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [resetTarget, setResetTarget] = useState<SchoolSummary | null>(null);
   const [addOpened, addModal] = useDisclosure(false);
 
-  // Time of the last successful load — the "last 30 days" stat is relative to it
+  // "Added last 30 days" is relative to the last successful load
   const [loadedAt, setLoadedAt] = useState(0);
 
-  /** Fetches the list; `isCurrent` lets the initial load ignore a late response after unmount. */
   const fetchSchools = useCallback((isCurrent: () => boolean = () => true) =>
-    api.schools.list()
-      .then((res) => {
+    Promise.all([api.schools.list(), api.plans.list()])
+      .then(([schoolsRes, plansRes]) => {
         if (!isCurrent()) return;
-        setSchools(res.data);
+        setSchools(schoolsRes.data);
+        setPlans(plansRes.data);
         setLoadedAt(Date.now());
       })
       .catch((err) => { if (isCurrent()) notify.error(errorMessage(err, 'Failed to load schools')); })
       .finally(() => { if (isCurrent()) setLoading(false); }),
   []);
 
-  /** Manual refresh (button, after creating a school). */
-  const loadSchools = useCallback(() => {
-    setLoading(true);
-    return fetchSchools();
-  }, [fetchSchools]);
+  const loadSchools = useCallback(() => { setLoading(true); return fetchSchools(); }, [fetchSchools]);
 
   useEffect(() => {
-    let current = true; // `loading` already starts true
+    let current = true;
     fetchSchools(() => current);
     return () => { current = false; };
   }, [fetchSchools]);
@@ -124,7 +78,39 @@ export default function SchoolsPage() {
     });
   }, [schools, query, statusFilter]);
 
-  const hasRows = !loading && filtered.length > 0;
+  function copyId(school: SchoolSummary) {
+    navigator.clipboard.writeText(school.id)
+      .then(() => notify.success('School ID copied to clipboard.'))
+      .catch(() => notify.error('Could not copy to clipboard.'));
+  }
+
+  const columns: Column<SchoolSummary>[] = [
+    {
+      key: 'school',
+      header: 'School',
+      render: (s) => (
+        <Group gap="sm" wrap="nowrap">
+          <SchoolAvatar school={s} />
+          <Box miw={0}>
+            <Text fw={600} size="sm" truncate="end">{s.name}</Text>
+            <Text size="xs" c="dimmed" truncate="end" maw={480} title={s.address}>{s.address}</Text>
+          </Box>
+        </Group>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      width: 140,
+      render: (s) => <StatusPill tone={s.isActive ? 'green' : 'gray'}>{s.isActive ? 'Active' : 'Inactive'}</StatusPill>,
+    },
+    {
+      key: 'created',
+      header: 'Created',
+      width: 160,
+      render: (s) => <Text size="sm" c="dimmed">{formatDate(s.createdAt)}</Text>,
+    },
+  ];
 
   return (
     <>
@@ -144,143 +130,83 @@ export default function SchoolsPage() {
         }
       />
 
-      <SimpleGrid cols={{ base: 2, lg: 4 }} mb="lg">
-        <StatCard label="Total schools" value={stats.total} icon={IconBuildingCommunity} color="brand" loading={loading} />
-        <StatCard label="Active" value={stats.active} icon={IconCircleCheck} color="teal" loading={loading} />
-        <StatCard label="Inactive" value={stats.inactive} icon={IconCircleOff} color="gray" loading={loading} />
-        <StatCard label="Added last 30 days" value={stats.recent} icon={IconCalendarPlus} color="violet" loading={loading} />
+      <SimpleGrid cols={{ base: 1, xs: 2, lg: 4 }} spacing="md" mb="lg">
+        <StatCard label="Total schools" value={stats.total} icon={<IconBuildingCommunity size={20} />} loading={loading} hint="On the platform" />
+        <StatCard
+          label="Active"
+          value={stats.active}
+          icon={<IconCircleCheck size={20} />}
+          color="teal"
+          loading={loading}
+          progress={stats.total ? (stats.active / stats.total) * 100 : 0}
+          hint={stats.total ? `${Math.round((stats.active / stats.total) * 100)}% of schools` : 'No schools yet'}
+        />
+        <StatCard label="Inactive" value={stats.inactive} icon={<IconCircleOff size={20} />} color="gray" loading={loading} hint={stats.inactive ? 'Logins blocked' : 'None blocked'} />
+        <StatCard label="Added last 30 days" value={stats.recent} icon={<IconCalendarPlus size={20} />} color="violet" loading={loading} hint="New onboardings" />
       </SimpleGrid>
 
-      <Card padding="sm">
-        {/* Toolbar */}
-        <Card.Section withBorder inheritPadding py="sm">
-          <Group justify="space-between" gap="sm">
-            <TextInput
-              placeholder="Search by name or address…"
-              aria-label="Search schools"
-              leftSection={<IconSearch size={16} />}
-              value={query}
-              onChange={(e) => setQuery(e.currentTarget.value)}
-              w={{ base: '100%', sm: 320 }}
-            />
-            <SegmentedControl
-              size="xs"
-              w={{ base: '100%', sm: 'auto' }}
-              value={statusFilter}
-              onChange={(v) => setStatusFilter(v as StatusFilter)}
-              data={[
-                { value: 'all', label: `All (${stats.total})` },
-                { value: 'active', label: `Active (${stats.active})` },
-                { value: 'inactive', label: `Inactive (${stats.inactive})` },
-              ]}
-            />
-          </Group>
-        </Card.Section>
-
-        {loading ? (
-          <Stack p="md" gap="md" aria-busy="true">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <Group key={i} wrap="nowrap">
-                <Skeleton h={36} w={36} radius="md" />
-                <Stack gap={6} flex={1}>
-                  <Skeleton h={12} w="35%" />
-                  <Skeleton h={10} w="55%" />
-                </Stack>
+      <DataTable
+        data={filtered}
+        columns={columns}
+        rowKey={(s) => s.id}
+        loading={loading}
+        totalCount={schools.length}
+        noun={['school', 'schools']}
+        minWidth={620}
+        onRowClick={(s) => router.push(settingsHref(s.id))}
+        search={{ value: query, onChange: setQuery, placeholder: 'Search by name or address' }}
+        filters={
+          <SegmentedControl
+            value={statusFilter}
+            onChange={(v) => setStatusFilter(v as StatusFilter)}
+            data={[
+              { value: 'all', label: `All ${stats.total}` },
+              { value: 'active', label: `Active ${stats.active}` },
+              { value: 'inactive', label: `Inactive ${stats.inactive}` },
+            ]}
+          />
+        }
+        onClearFilters={() => { setQuery(''); setStatusFilter('all'); }}
+        rowActions={(s) => (
+          <Menu position="bottom-end" width={220}>
+            <Menu.Target>
+              <ActionIcon variant="subtle" color="gray" aria-label={`Actions for ${s.name}`}>
+                <IconDots size={18} />
+              </ActionIcon>
+            </Menu.Target>
+            <Menu.Dropdown>
+              <Menu.Item leftSection={<IconSettings size={16} />} onClick={() => router.push(settingsHref(s.id))}>Settings</Menu.Item>
+              <Menu.Item leftSection={<IconKey size={16} />} onClick={() => setResetTarget(s)}>Reset admin password</Menu.Item>
+              <Menu.Divider />
+              <Menu.Item leftSection={<IconCopy size={16} />} onClick={() => copyId(s)}>Copy school ID</Menu.Item>
+            </Menu.Dropdown>
+          </Menu>
+        )}
+        renderMobileRow={(s) => (
+          <Group gap="sm" wrap="nowrap">
+            <SchoolAvatar school={s} />
+            <Box miw={0} flex={1}>
+              <Group gap="xs" justify="space-between" wrap="nowrap">
+                <Text fw={600} size="sm" truncate="end">{s.name}</Text>
+                <StatusPill tone={s.isActive ? 'green' : 'gray'}>{s.isActive ? 'Active' : 'Inactive'}</StatusPill>
               </Group>
-            ))}
-          </Stack>
-        ) : schools.length === 0 ? (
+              <Text size="xs" c="dimmed" truncate="end" mt={2}>{formatDate(s.createdAt)} · {s.address}</Text>
+            </Box>
+          </Group>
+        )}
+        emptyState={
           <EmptyState
-            py={56}
+            py={64}
             icon={<IconBuildingCommunity size={28} stroke={1.5} />}
             title="No schools yet"
             description="Add your first school to create its admin account and start onboarding buses and parents."
           >
             <Button mt="md" leftSection={<IconPlus size={16} />} onClick={addModal.open}>Add school</Button>
           </EmptyState>
-        ) : filtered.length === 0 ? (
-          <EmptyState
-            py={48}
-            icon={<IconSearch size={26} stroke={1.5} />}
-            title="No matching schools"
-            description="Try a different search term or status filter."
-          >
-            <Button mt="md" variant="default" onClick={() => { setQuery(''); setStatusFilter('all'); }}>Clear filters</Button>
-          </EmptyState>
-        ) : null}
+        }
+      />
 
-        {/* Tablet / desktop: table */}
-        {hasRows && (
-          <Card.Section withBorder visibleFrom="sm">
-            <Table.ScrollContainer minWidth={560}>
-              <Table highlightOnHover verticalSpacing="sm" horizontalSpacing="md">
-                <Table.Thead>
-                  <Table.Tr>
-                    <Table.Th>School</Table.Th>
-                    <Table.Th w={140}>Status</Table.Th>
-                    <Table.Th w={160}>Created</Table.Th>
-                    <Table.Th w={56}><VisuallyHidden>Actions</VisuallyHidden></Table.Th>
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {filtered.map((s) => (
-                    <Table.Tr key={s.id}>
-                      <Table.Td>
-                        <Group gap="sm" wrap="nowrap">
-                          <SchoolAvatar school={s} />
-                          <Box miw={0}>
-                            <Anchor component={Link} href={settingsHref(s.id)} fw={500} size="sm" c="var(--mantine-color-text)" truncate="end" display="block">
-                              {s.name}
-                            </Anchor>
-                            <Text size="xs" c="dimmed" truncate="end" maw={480} title={s.address}>{s.address}</Text>
-                          </Box>
-                        </Group>
-                      </Table.Td>
-                      <Table.Td><StatusBadge active={s.isActive} /></Table.Td>
-                      <Table.Td><Text size="sm" c="dimmed">{formatDate(s.createdAt)}</Text></Table.Td>
-                      <Table.Td ta="right"><RowActions school={s} onReset={() => setResetTarget(s)} /></Table.Td>
-                    </Table.Tr>
-                  ))}
-                </Table.Tbody>
-              </Table>
-            </Table.ScrollContainer>
-          </Card.Section>
-        )}
-
-        {/* Phone: stacked list */}
-        {hasRows && (
-          <Card.Section withBorder hiddenFrom="sm">
-            {filtered.map((s, i) => (
-              <Box key={s.id}>
-                {i > 0 && <Divider />}
-                <Group wrap="nowrap" gap="sm" p="sm">
-                  <SchoolAvatar school={s} />
-                  <Box miw={0} flex={1}>
-                    <Anchor component={Link} href={settingsHref(s.id)} fw={500} size="sm" c="var(--mantine-color-text)" truncate="end" display="block">
-                      {s.name}
-                    </Anchor>
-                    <Group gap="xs" mt={4}>
-                      <StatusBadge active={s.isActive} />
-                      <Text size="xs" c="dimmed">{formatDate(s.createdAt)}</Text>
-                    </Group>
-                  </Box>
-                  <RowActions school={s} onReset={() => setResetTarget(s)} />
-                </Group>
-              </Box>
-            ))}
-          </Card.Section>
-        )}
-
-        {hasRows && (
-          <Card.Section withBorder inheritPadding py="sm">
-            <Text size="xs" c="dimmed">
-              Showing {filtered.length} of {schools.length} school{schools.length !== 1 ? 's' : ''}
-            </Text>
-          </Card.Section>
-        )}
-      </Card>
-
-      <AddSchoolModal opened={addOpened} onClose={addModal.close} onCreated={loadSchools} />
+      <AddSchoolModal opened={addOpened} onClose={addModal.close} onCreated={loadSchools} plans={plans} />
       <ResetPasswordModal school={resetTarget} onClose={() => setResetTarget(null)} />
     </>
   );

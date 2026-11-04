@@ -8,7 +8,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
   return (
     <AuthGuard requiredRole="super_admin">
       {/* showAccountLinks=false: super admin has only logout */}
-      <AdminShell navItems={SUPER_ADMIN_NAV} showAccountLinks={false}>
+      <AdminShell nav={SUPER_ADMIN_NAV} showAccountLinks={false}>
         {children}
       </AdminShell>
     </AuthGuard>

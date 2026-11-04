@@ -113,8 +113,104 @@ export interface SchoolSummary {
 /** Mirrors BusPointBackend src/schools/school-settings.ts */
 export type SubscriptionManager = 'platform' | 'school';
 
+export interface PlanSummary {
+  id: string;
+  name: string;
+  description: string | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
 export interface SchoolSettings {
   subscriptionManagedBy: SubscriptionManager;
+  /** UUID of the assigned plan, or null if unassigned. */
+  planId: string | null;
+  /** ISO 8601 date string or null. When set and in the past all logins are blocked (HTTP 402). */
+  planExpiresAt: string | null;
+  /** Plans available for assignment (returned by GET settings only). */
+  availablePlans?: PlanSummary[];
+}
+
+// ─── School-admin domain types ────────────────────────────────────────────────
+
+export interface BusSummary {
+  id: string;
+  schoolId: string;
+  name: string;
+  plateNumber: string;
+  make: string | null;
+  model: string | null;
+  capacity: number | null;
+  routeId: string | null;
+  returnRouteId: string | null;
+  isActive: boolean;
+  createdAt: string;
+  driver?: { id: string; fullName: string | null; phone: string | null } | null;
+}
+
+export interface RouteSummary {
+  id: string;
+  schoolId: string;
+  name: string;
+  isActive: boolean;
+  stopCount?: number;
+  busCount?: number;
+  createdAt: string;
+}
+
+export type StopKind = 'school' | 'stop' | 'end';
+
+export interface RouteStop {
+  id: string;
+  routeId: string;
+  name: string;
+  kind: StopKind;
+  address: string | null;
+  lat: number;
+  lng: number;
+  stopOrder: number;
+  createdAt: string;
+}
+
+export interface StopLocation {
+  lat: number;
+  lng: number;
+  address?: string;
+}
+
+export interface MySchool {
+  id: string;
+  name: string;
+  address: string;
+  logoUrl: string | null;
+  lat: number | null;
+  lng: number | null;
+}
+
+export interface RouteDetail extends RouteSummary {
+  stops: RouteStop[];
+}
+
+export interface DriverSummary {
+  id: string;
+  fullName: string | null;
+  phone: string | null;
+  isActive: boolean;
+  createdAt: string;
+  bus?: { id: string; name: string; plateNumber: string } | null;
+}
+
+export interface DriverWithPassword extends DriverSummary {
+  tempPassword: string;
+}
+
+export interface BusDriverAssignment {
+  id: string;
+  busId: string;
+  driverId: string;
+  isActive: boolean;
+  assignedAt: string;
+  driver?: DriverSummary | null;
 }
 
 export const api = {
@@ -134,7 +230,10 @@ export const api = {
     create: (body: {
       name: string;
       address: string;
+      lat?: number;
+      lng?: number;
       logoUrl?: string;
+      planId?: string;
       adminEmail: string;
       adminPassword: string;
       adminName: string;
@@ -152,6 +251,87 @@ export const api = {
       ),
   },
 
+  plans: {
+    list: () => request<PlanSummary[]>('/plans'),
+
+    create: (body: { name: string; description?: string }) =>
+      request<PlanSummary>('/plans', { method: 'POST', body: JSON.stringify(body) }),
+
+    update: (id: string, body: { name?: string; description?: string; isActive?: boolean }) =>
+      request<PlanSummary>(`/plans/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+
+    remove: (id: string) =>
+      request<null>(`/plans/${id}`, { method: 'DELETE' }),
+  },
+
+  buses: {
+    list: () => request<BusSummary[]>('/buses'),
+
+    get: (id: string) => request<BusSummary>(`/buses/${id}`),
+
+    create: (body: { name: string; plateNumber: string; make?: string; model?: string; capacity?: number; routeId?: string }) =>
+      request<BusSummary>('/buses', { method: 'POST', body: JSON.stringify(body) }),
+
+    update: (id: string, body: Partial<{ name: string; plateNumber: string; make: string | null; model: string | null; capacity: number | null; routeId: string | null; returnRouteId: string | null }>) =>
+      request<BusSummary>(`/buses/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+
+    remove: (id: string) =>
+      request<null>(`/buses/${id}`, { method: 'DELETE' }),
+
+    getDriver: (id: string) =>
+      request<BusDriverAssignment | null>(`/buses/${id}/driver`),
+
+    assignDriver: (busId: string, driverId: string) =>
+      request<BusDriverAssignment>(`/buses/${busId}/driver`, { method: 'POST', body: JSON.stringify({ driverId }) }),
+
+    unassignDriver: (busId: string) =>
+      request<null>(`/buses/${busId}/driver`, { method: 'DELETE' }),
+  },
+
+  routes: {
+    list: () => request<RouteSummary[]>('/routes'),
+
+    get: (id: string) => request<RouteDetail>(`/routes/${id}`),
+
+    create: (body: { name: string }) =>
+      request<RouteSummary>('/routes', { method: 'POST', body: JSON.stringify(body) }),
+
+    update: (id: string, body: { name?: string }) =>
+      request<RouteSummary>(`/routes/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+
+    remove: (id: string) =>
+      request<null>(`/routes/${id}`, { method: 'DELETE' }),
+
+    /** School (first stop) is added by the server; send pickups in order plus the Last Stop. */
+    saveStops: (id: string, body: { stops: Array<StopLocation & { name: string }>; end: StopLocation | null }) =>
+      request<RouteStop[]>(`/routes/${id}/stops`, { method: 'PUT', body: JSON.stringify(body) }),
+  },
+
+  mySchool: {
+    get: () => request<MySchool>('/my-school'),
+
+    setLocation: (lat: number, lng: number) =>
+      request<{ lat: number; lng: number }>('/my-school/location', { method: 'PATCH', body: JSON.stringify({ lat, lng }) }),
+  },
+
+  drivers: {
+    list: () => request<DriverSummary[]>('/drivers'),
+
+    get: (id: string) => request<DriverSummary>(`/drivers/${id}`),
+
+    create: (body: { fullName: string; phone: string }) =>
+      request<DriverWithPassword>('/drivers', { method: 'POST', body: JSON.stringify(body) }),
+
+    update: (id: string, body: { fullName?: string; phone?: string; isActive?: boolean }) =>
+      request<DriverSummary>(`/drivers/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+
+    resetPassword: (id: string) =>
+      request<{ tempPassword: string }>(`/drivers/${id}/reset-password`, { method: 'POST' }),
+
+    remove: (id: string) =>
+      request<null>(`/drivers/${id}`, { method: 'DELETE' }),
+  },
+
   auth: {
     webLogin: (email: string, password: string) =>
       request<{ role: string; email: string; accessTokenExpiresAt: number }>(
@@ -160,9 +340,14 @@ export const api = {
       ),
 
     me: () =>
-      request<{ id: string; email: string; role: string; schoolId: string | null }>(
-        '/auth/me',
-      ),
+      request<{
+        id: string;
+        email: string | null;
+        role: string;
+        schoolId: string | null;
+        fullName: string | null;
+        school: { id: string; name: string; logoUrl: string | null } | null;
+      }>('/auth/me'),
 
     logout: () => request<null>('/auth/logout', { method: 'POST' }),
 

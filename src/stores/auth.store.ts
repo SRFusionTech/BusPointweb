@@ -5,9 +5,18 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 
 export type UserRole = 'super_admin' | 'school_admin' | 'driver' | 'parent';
 
+export interface AuthSchool {
+  id: string;
+  name: string;
+  logoUrl: string | null;
+}
+
 export interface AuthUser {
-  email: string;
+  email: string | null;
   role: UserRole;
+  fullName?: string | null;
+  /** undefined = not loaded yet; null = user has no school (super admin) */
+  school?: AuthSchool | null;
 }
 
 interface AuthState {

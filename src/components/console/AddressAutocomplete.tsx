@@ -4,10 +4,19 @@ import { useEffect, useRef, useState } from 'react';
 import { Autocomplete, Loader } from '@mantine/core';
 import { IconMapPin } from '@tabler/icons-react';
 
+export interface PickedPlace {
+  address: string;
+  lat: number;
+  lng: number;
+}
+
 interface Props {
   value: string;
   onChange: (address: string) => void;
+  /** Fired after a suggestion is picked, with its coordinates. */
+  onPlaceSelect?: (place: PickedPlace) => void;
   label?: string;
+  placeholder?: string;
   withAsterisk?: boolean;
   disabled?: boolean;
   error?: string;
@@ -56,6 +65,12 @@ function loadGoogleMapsScript(apiKey: string, cb: (ok: boolean) => void) {
   document.head.appendChild(script);
 }
 
+/** Loads the shared Maps script once; resolves false when the key is missing or rejected. */
+export function loadGoogleMaps(): Promise<boolean> {
+  if (!API_KEY) return Promise.resolve(false);
+  return new Promise((resolve) => loadGoogleMapsScript(API_KEY, resolve));
+}
+
 let placesLib: google.maps.PlacesLibrary | null = null;
 async function getPlacesLib() {
   placesLib ??= (await google.maps.importLibrary('places')) as google.maps.PlacesLibrary;
@@ -71,7 +86,9 @@ const MESSAGES: Record<'no-key' | 'failed', string> = {
 };
 
 /** Google Places (New) address search as a Mantine Autocomplete. */
-export function AddressAutocomplete({ value, onChange, label, withAsterisk, disabled, error, id = 'address' }: Props) {
+export function AddressAutocomplete({
+  value, onChange, onPlaceSelect, label, placeholder, withAsterisk, disabled, error, id = 'address',
+}: Props) {
   const [status, setStatus] = useState<Status>(API_KEY ? 'loading' : 'no-key');
   const [options, setOptions] = useState<string[]>([]);
   const [fetching, setFetching] = useState(false);
@@ -128,8 +145,10 @@ export function AddressAutocomplete({ value, onChange, label, withAsterisk, disa
     if (!prediction) return;
     try {
       const place = prediction.toPlace();
-      await place.fetchFields({ fields: ['formattedAddress'] }); // closes the billing session
-      if (place.formattedAddress) onChange(place.formattedAddress);
+      await place.fetchFields({ fields: ['formattedAddress', 'location'] }); // closes the billing session
+      const address = place.formattedAddress ?? text;
+      onChange(address);
+      if (place.location) onPlaceSelect?.({ address, lat: place.location.lat(), lng: place.location.lng() });
     } catch {
       // keep the prediction text that's already in the field
     } finally {
@@ -145,7 +164,7 @@ export function AddressAutocomplete({ value, onChange, label, withAsterisk, disa
       id={id}
       label={label}
       withAsterisk={withAsterisk}
-      placeholder={unavailable ? 'Address search unavailable' : status === 'loading' ? 'Loading maps…' : 'Start typing the school address…'}
+      placeholder={unavailable ? 'Address search unavailable' : status === 'loading' ? 'Loading maps…' : (placeholder ?? 'Start typing the school address…')}
       value={value}
       onChange={handleChange}
       onOptionSubmit={handleSelect}

@@ -7,7 +7,7 @@ import { SCHOOL_ADMIN_NAV } from '@/components/console/nav-items';
 export default function SchoolAdminLayout({ children }: { children: React.ReactNode }) {
   return (
     <AuthGuard requiredRole="school_admin">
-      <AdminShell navItems={SCHOOL_ADMIN_NAV} showAccountLinks>
+      <AdminShell nav={SCHOOL_ADMIN_NAV} showAccountLinks>
         {children}
       </AdminShell>
     </AuthGuard>

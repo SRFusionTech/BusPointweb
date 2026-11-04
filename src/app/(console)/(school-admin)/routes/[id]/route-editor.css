@@ -1,0 +1,171 @@
+/* Route stop editor. Global (not a CSS module): the Turbopack Tailwind loader in next.config handles every *.css. */
+
+.bp-route-editor {
+  display: grid;
+  grid-template-columns: 1fr;
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-md);
+  overflow: hidden;
+  background: var(--mantine-color-body);
+}
+
+@media (min-width: 62em) {
+  .bp-route-editor {
+    grid-template-columns: 400px minmax(0, 1fr);
+    height: calc(100dvh - 210px);
+    min-height: 560px;
+  }
+}
+
+.bp-route-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-bottom: 1px solid var(--mantine-color-default-border);
+}
+
+@media (min-width: 62em) {
+  .bp-route-panel {
+    border-bottom: 0;
+    border-right: 1px solid var(--mantine-color-default-border);
+  }
+}
+
+.bp-route-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.bp-route-map {
+  position: relative;
+  min-height: 440px;
+}
+
+.bp-route-map-canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.bp-route-search {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  z-index: 2;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  max-width: 560px;
+}
+
+.bp-route-search > :first-child {
+  flex: 1;
+  box-shadow: var(--mantine-shadow-md);
+  border-radius: var(--mantine-radius-md);
+}
+
+.bp-route-banner {
+  position: absolute;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  z-index: 2;
+  max-width: calc(100% - 24px);
+}
+
+/* ── Stop rows ─────────────────────────────────────────────── */
+.bp-stop {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px;
+  margin-bottom: 4px;
+  border-radius: var(--mantine-radius-md);
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+
+.bp-stop:hover {
+  background: var(--mantine-color-default-hover);
+}
+
+.bp-stop[data-selected='true'] {
+  background: var(--mantine-primary-color-light);
+  border-color: var(--mantine-primary-color-light-hover);
+}
+
+.bp-stop[data-dragging='true'] {
+  opacity: 0.4;
+}
+
+/* Drop indicator above the hovered row */
+.bp-stop[data-drop='true']::before {
+  content: '';
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: -3px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--mantine-primary-color-filled);
+}
+
+/* Timeline connector between badges (badge centre = 10 + 16 + 10 + 13 px) */
+.bp-stop[data-line='true']::after {
+  content: '';
+  position: absolute;
+  left: 48px;
+  top: 38px;
+  bottom: -14px;
+  width: 2px;
+  background: var(--mantine-color-default-border);
+}
+
+.bp-stop-grip {
+  width: 16px;
+  flex-shrink: 0;
+  padding-top: 5px;
+  color: var(--mantine-color-dimmed);
+  cursor: grab;
+}
+
+.bp-stop-badge {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  box-shadow: 0 0 0 3px var(--mantine-color-body);
+}
+
+.bp-stop-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: calc(100% - 40px);
+  margin: 2px 0 6px 40px;
+  padding: 9px;
+  border: 1px dashed var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-md);
+  background: transparent;
+  color: var(--mantine-primary-color-filled);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.bp-stop-add:hover,
+.bp-stop-add[data-active='true'] {
+  border-color: var(--mantine-primary-color-filled);
+  background: var(--mantine-primary-color-light);
+}

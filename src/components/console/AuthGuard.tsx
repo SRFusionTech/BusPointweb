@@ -24,8 +24,8 @@ export function AuthGuard({ requiredRole, children }: Props) {
 
     async function check() {
       try {
-        // If Zustand already has a user with the right role, trust it
-        if (user && allowed.includes(user.role)) {
+        // Trust the cached user once its profile (incl. school branding) has been loaded
+        if (user && allowed.includes(user.role) && user.school !== undefined) {
           setReady(true);
           return;
         }
@@ -39,7 +39,7 @@ export function AuthGuard({ requiredRole, children }: Props) {
           return;
         }
 
-        setUser({ email: data.email, role });
+        setUser({ email: data.email, role, fullName: data.fullName, school: data.school });
         setReady(true);
       } catch {
         setUser(null);

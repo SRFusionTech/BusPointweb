@@ -7,23 +7,27 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
-  Badge, Box, Button, Card, EmptyState, Grid, Group, NavLink, Radio, SimpleGrid, Skeleton, Text, Title,
+  Badge, Box, Button, Card, EmptyState, Grid, Group, NavLink, Radio, SimpleGrid, Skeleton, Stack, Text, TextInput, Title,
 } from '@mantine/core';
-import { IconAlertCircle, IconCreditCard } from '@tabler/icons-react';
-import { api, type SchoolSummary, type SchoolSettings } from '@/lib/api';
+import { IconAlertCircle, IconCalendarOff, IconCreditCard } from '@tabler/icons-react';
+import { api, type SchoolSummary, type SchoolSettings, type PlanSummary } from '@/lib/api';
 import { notify, errorMessage } from '@/lib/notify';
 import { PageHeader } from '@/components/console/PageHeader';
+import { CreatableSelect } from '@/components/console/CreatableSelect';
 import { SchoolAvatar, StatusBadge } from '@/components/super-admin/school-ui';
 
 // ─── Schema — keep in sync with backend UpdateSchoolSettingsDto ──────────────
 const schema = z.object({
   subscriptionManagedBy: z.enum(['platform', 'school']),
+  planId: z.string().nullable(),
+  planExpiresAt: z.string().nullable(),
 });
 type FormValues = z.infer<typeof schema>;
 
 // ─── Settings sections — add new groups here ─────────────────────────────────
 const SECTIONS = [
   { id: 'subscriptions', label: 'Subscriptions', icon: IconCreditCard },
+  { id: 'access', label: 'Access', icon: IconCalendarOff },
 ] as const;
 
 const SUBSCRIPTION_OPTIONS: Array<{ value: SchoolSettings['subscriptionManagedBy']; title: string; description: string }> = [
@@ -39,20 +43,38 @@ const SUBSCRIPTION_OPTIONS: Array<{ value: SchoolSettings['subscriptionManagedBy
   },
 ];
 
+/** Convert ISO timestamp to YYYY-MM-DD for <input type="date"> */
+function toDateInput(iso: string | null | undefined): string {
+  if (!iso) return '';
+  return iso.slice(0, 10);
+}
+
+/** True if the given YYYY-MM-DD is in the past relative to today */
+function isExpired(dateStr: string | null): boolean {
+  if (!dateStr) return false;
+  return new Date(dateStr) < new Date(new Date().toDateString());
+}
+
 export default function SchoolSettingsPage() {
   const { id } = useParams<{ id: string }>();
   const [school, setSchool] = useState<SchoolSummary | null>(null);
+  const [availablePlans, setAvailablePlans] = useState<PlanSummary[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const {
     control,
+    register,
     handleSubmit,
     reset,
+    watch,
+    setValue,
     formState: { isDirty, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { subscriptionManagedBy: 'platform' },
+    defaultValues: { subscriptionManagedBy: 'platform', planId: null, planExpiresAt: null },
   });
+
+  const planExpiresAt = watch('planExpiresAt');
 
   useEffect(() => {
     let cancelled = false;
@@ -60,7 +82,12 @@ export default function SchoolSettingsPage() {
       .then(([schoolRes, settingsRes]) => {
         if (cancelled) return;
         setSchool(schoolRes.data);
-        reset(settingsRes.data); // loaded values become the "clean" baseline
+        setAvailablePlans(settingsRes.data.availablePlans ?? []);
+        reset({
+          subscriptionManagedBy: settingsRes.data.subscriptionManagedBy,
+          planId: settingsRes.data.planId ?? null,
+          planExpiresAt: toDateInput(settingsRes.data.planExpiresAt),
+        });
       })
       .catch((err) => { if (!cancelled) setLoadError(errorMessage(err, 'Failed to load settings')); });
     return () => { cancelled = true; };
@@ -68,8 +95,17 @@ export default function SchoolSettingsPage() {
 
   async function onSubmit(values: FormValues) {
     try {
-      const res = await api.schools.updateSettings(id, values);
-      reset(res.data);
+      const payload = {
+        subscriptionManagedBy: values.subscriptionManagedBy,
+        planId: values.planId || null,
+        planExpiresAt: values.planExpiresAt || null,
+      };
+      const res = await api.schools.updateSettings(id, payload);
+      reset({
+        subscriptionManagedBy: res.data.subscriptionManagedBy,
+        planId: res.data.planId ?? null,
+        planExpiresAt: toDateInput(res.data.planExpiresAt),
+      });
       notify.success('Settings saved.');
     } catch (err) {
       notify.error(errorMessage(err, 'Failed to save settings'));
@@ -135,50 +171,131 @@ export default function SchoolSettingsPage() {
         {/* Sections */}
         <Grid.Col span={{ base: 12, md: 9 }}>
           <form onSubmit={handleSubmit(onSubmit)} noValidate>
-            <Card id="subscriptions" padding="lg">
-              <Card.Section withBorder inheritPadding py="md">
-                <Title order={4} fw={600}>Subscriptions</Title>
-                <Text size="sm" c="dimmed" mt={2}>Choose who manages parent subscriptions for this school.</Text>
-              </Card.Section>
+            <Stack gap="xl">
 
-              <Card.Section withBorder inheritPadding py="lg">
-                <Controller
-                  name="subscriptionManagedBy"
-                  control={control}
-                  render={({ field }) => (
-                    <Radio.Group
-                      label="Managed by"
-                      value={field.value}
-                      onChange={(v) => field.onChange(v as FormValues['subscriptionManagedBy'])}
-                      readOnly={loading || isSubmitting}
-                    >
-                      <SimpleGrid cols={{ base: 1, sm: 2 }} mt="sm">
-                        {SUBSCRIPTION_OPTIONS.map((opt) => (
-                          <Radio.Card key={opt.value} value={opt.value} p="md" radius="md" disabled={loading || isSubmitting}>
-                            <Group wrap="nowrap" align="flex-start" gap="sm">
-                              <Radio.Indicator mt={2} />
-                              <div>
-                                <Text fw={500} size="sm">{opt.title}</Text>
-                                <Text size="xs" c="dimmed" mt={4} lh={1.5}>{opt.description}</Text>
-                              </div>
-                            </Group>
-                          </Radio.Card>
-                        ))}
-                      </SimpleGrid>
-                    </Radio.Group>
-                  )}
-                />
-              </Card.Section>
+              {/* ── Subscriptions ── */}
+              <Card id="subscriptions" padding="lg">
+                <Card.Section withBorder inheritPadding py="md">
+                  <Title order={4} fw={600}>Subscriptions</Title>
+                  <Text size="sm" c="dimmed" mt={2}>Choose who manages parent subscriptions for this school.</Text>
+                </Card.Section>
 
-              {/* Save bar */}
-              <Card.Section withBorder inheritPadding py="sm">
-                <Group justify="flex-end">
-                  {isDirty && <Badge color="yellow" variant="light" mr="auto">Unsaved changes</Badge>}
-                  <Button variant="default" onClick={() => reset()} disabled={!isDirty || isSubmitting}>Discard</Button>
-                  <Button type="submit" loading={isSubmitting} disabled={!isDirty}>Save changes</Button>
-                </Group>
-              </Card.Section>
-            </Card>
+                <Card.Section withBorder inheritPadding py="lg">
+                  <Controller
+                    name="subscriptionManagedBy"
+                    control={control}
+                    render={({ field }) => (
+                      <Radio.Group
+                        label="Managed by"
+                        value={field.value}
+                        onChange={(v) => field.onChange(v as FormValues['subscriptionManagedBy'])}
+                        readOnly={loading || isSubmitting}
+                      >
+                        <SimpleGrid cols={{ base: 1, sm: 2 }} mt="sm">
+                          {SUBSCRIPTION_OPTIONS.map((opt) => (
+                            <Radio.Card key={opt.value} value={opt.value} p="md" radius="md" disabled={loading || isSubmitting}>
+                              <Group wrap="nowrap" align="flex-start" gap="sm">
+                                <Radio.Indicator mt={2} />
+                                <div>
+                                  <Text fw={500} size="sm">{opt.title}</Text>
+                                  <Text size="xs" c="dimmed" mt={4} lh={1.5}>{opt.description}</Text>
+                                </div>
+                              </Group>
+                            </Radio.Card>
+                          ))}
+                        </SimpleGrid>
+                      </Radio.Group>
+                    )}
+                  />
+                </Card.Section>
+              </Card>
+
+              {/* ── Access ── */}
+              <Card id="access" padding="lg">
+                <Card.Section withBorder inheritPadding py="md">
+                  <Title order={4} fw={600}>Access</Title>
+                  <Text size="sm" c="dimmed" mt={2}>
+                    Set a plan expiry date. After this date all logins for this school’s users will be blocked
+                    with a clear “subscription expired” message. Leave blank to keep the school always active.
+                  </Text>
+                </Card.Section>
+
+                <Card.Section withBorder inheritPadding py="lg">
+                  <Stack gap="lg" maw={360}>
+                    <Controller
+                      name="planId"
+                      control={control}
+                      render={({ field }) => (
+                        <CreatableSelect
+                          label="Plan"
+                          description="Which plan this school is on. No restrictions are enforced yet — recorded for future billing."
+                          entity="plan"
+                          requireName
+                          placeholder={availablePlans.length ? 'Unassigned' : 'No plans yet — type a name to create one'}
+                          clearable
+                          disabled={loading || isSubmitting}
+                          data={availablePlans.map((p) => ({
+                            value: p.id,
+                            label: p.name,
+                            description: p.description ?? undefined,
+                          }))}
+                          value={field.value ?? null}
+                          onChange={(v) => field.onChange(v)}
+                          onCreate={async (name) => {
+                            try {
+                              const res = await api.plans.create({ name });
+                              setAvailablePlans((prev) => [...prev, res.data]);
+                              field.onChange(res.data.id);
+                              notify.success(`Plan “${name}” created. Save to apply it.`);
+                            } catch (err) {
+                              notify.error(errorMessage(err, 'Failed to create plan'));
+                            }
+                          }}
+                        />
+                      )}
+                    />
+                    <TextInput
+                      type="date"
+                      label="Plan expires on"
+                      description="Drivers, parents and school admins cannot log in after this date."
+                      disabled={loading || isSubmitting}
+                      error={
+                        planExpiresAt && isExpired(planExpiresAt)
+                          ? 'This date is in the past — this school is currently blocked.'
+                          : undefined
+                      }
+                      {...register('planExpiresAt', {
+                        setValueAs: (v: string) => v || null,
+                      })}
+                    />
+                    {planExpiresAt && (
+                      <Button
+                        variant="subtle"
+                        color="gray"
+                        size="xs"
+                        w="fit-content"
+                        onClick={() => setValue('planExpiresAt', null, { shouldDirty: true })}
+                        disabled={isSubmitting}
+                      >
+                        Clear expiry date
+                      </Button>
+                    )}
+                  </Stack>
+                </Card.Section>
+              </Card>
+
+              {/* ── Save bar ── */}
+              <Card padding="sm">
+                <Card.Section inheritPadding py="sm">
+                  <Group justify="flex-end">
+                    {isDirty && <Badge color="yellow" variant="light" mr="auto">Unsaved changes</Badge>}
+                    <Button variant="default" onClick={() => reset()} disabled={!isDirty || isSubmitting}>Discard</Button>
+                    <Button type="submit" loading={isSubmitting} disabled={!isDirty}>Save changes</Button>
+                  </Group>
+                </Card.Section>
+              </Card>
+
+            </Stack>
           </form>
         </Grid.Col>
       </Grid>

@@ -1,4 +1,4 @@
-import { createTheme, type MantineColorsTuple } from '@mantine/core';
+import { createTheme, type CSSVariablesResolver, type MantineColorsTuple } from '@mantine/core';
 
 /** BusPoint brand blue — same values the landing page uses (Tailwind blue). */
 const brand: MantineColorsTuple = [
@@ -16,7 +16,7 @@ export const mantineTheme = createTheme({
   defaultRadius: 'md',
   cursorType: 'pointer',
   components: {
-    Card: { defaultProps: { withBorder: true, shadow: 'xs', radius: 'lg' } },
+    Card: { defaultProps: { withBorder: true, radius: 'lg' } },
     Paper: { defaultProps: { radius: 'lg' } },
     Modal: { defaultProps: { radius: 'lg', centered: true, overlayProps: { backgroundOpacity: 0.45, blur: 3 } } },
     Menu: { defaultProps: { radius: 'md', shadow: 'md', withinPortal: true } },
@@ -27,3 +27,21 @@ export const mantineTheme = createTheme({
 
 /** Shared with the landing page's own toggle so dark mode is one preference. */
 export const COLOR_SCHEME_STORAGE_KEY = 'buspoint-theme';
+
+/**
+ * Console surface tokens:
+ *   --app-chrome  sidebar + header background
+ *   --app-body    page background behind the cards
+ * Use as Mantine prop values, e.g. bg="var(--app-body)".
+ */
+export const cssVariablesResolver: CSSVariablesResolver = (theme) => ({
+  variables: {},
+  light: {
+    '--app-chrome': theme.white,
+    '--app-body': theme.colors.gray[1],
+  },
+  dark: {
+    '--app-chrome': theme.colors.dark[7],
+    '--app-body': theme.colors.dark[8],
+  },
+});
