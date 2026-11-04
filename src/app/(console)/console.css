@@ -1,0 +1,7 @@
+/*
+ * Layer order shared with (marketing)/marketing.css. Whichever stylesheet loads
+ * first fixes the order, so both declare it. Mantine sits above Tailwind's
+ * preflight (base): if marketing CSS stays loaded after a client-side
+ * navigation into the console, its reset can't override Mantine components.
+ */
+@layer theme, base, mantine, components, utilities;

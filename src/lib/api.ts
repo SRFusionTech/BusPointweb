@@ -13,7 +13,7 @@
 
 import { useAuthStore } from '@/stores/auth.store';
 
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
+const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 
 // Refresh if the access token expires within the next 60 seconds
 const PROACTIVE_REFRESH_BUFFER_MS = 60_000;
@@ -110,9 +110,26 @@ export interface SchoolSummary {
   createdAt: string;
 }
 
+/** Mirrors BusPointBackend src/schools/school-settings.ts */
+export type SubscriptionManager = 'platform' | 'school';
+
+export interface SchoolSettings {
+  subscriptionManagedBy: SubscriptionManager;
+}
+
 export const api = {
   schools: {
     list: () => request<SchoolSummary[]>('/schools'),
+
+    get: (id: string) => request<SchoolSummary>(`/schools/${id}`),
+
+    getSettings: (id: string) => request<SchoolSettings>(`/schools/${id}/settings`),
+
+    updateSettings: (id: string, body: Partial<SchoolSettings>) =>
+      request<SchoolSettings>(`/schools/${id}/settings`, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      }),
 
     create: (body: {
       name: string;

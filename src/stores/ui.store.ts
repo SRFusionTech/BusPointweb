@@ -3,7 +3,7 @@
 import { create } from 'zustand';
 
 interface UiState {
-  /** Full-page loader: set a message or null to dismiss */
+  /** Full-screen blocking loader message (null = hidden), e.g. during sign-in/out. */
   pageLoader: string | null;
   showPageLoader: (message?: string) => void;
   hidePageLoader: () => void;
