@@ -25,7 +25,33 @@ interface Props {
   trail?: { lat: number; lng: number }[];
   /** Road-following route line from the server (replaces straight lines between stops). */
   road?: TripRoad | null;
+  /** Planned road path (no trip running) — drawn blue under the stops. */
+  plannedPath?: { lat: number; lng: number }[];
   height?: number | string;
+  /** Overlay content (status banners) drawn on top of the map. */
+  children?: React.ReactNode;
+}
+
+const MOVE_MS = 1200;
+
+/** Glide a marker to its new position instead of jumping (looks like the bus is driving). */
+function glide(marker: google.maps.Marker, to: google.maps.LatLngLiteral, anim: Map<google.maps.Marker, number>) {
+  const from = marker.getPosition();
+  const prev = anim.get(marker);
+  if (prev) cancelAnimationFrame(prev);
+  if (!from) return marker.setPosition(to);
+  const a = { lat: from.lat(), lng: from.lng() };
+  // Big jumps (first fix after offline, wrong bus) — no animation.
+  if (Math.abs(a.lat - to.lat) > 0.02 || Math.abs(a.lng - to.lng) > 0.02) return marker.setPosition(to);
+  const t0 = performance.now();
+  const step = (t: number) => {
+    const k = Math.min(1, (t - t0) / MOVE_MS);
+    const e = k < 0.5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2;
+    marker.setPosition({ lat: a.lat + (to.lat - a.lat) * e, lng: a.lng + (to.lng - a.lng) * e });
+    if (k < 1) anim.set(marker, requestAnimationFrame(step));
+    else anim.delete(marker);
+  };
+  anim.set(marker, requestAnimationFrame(step));
 }
 
 const PRESENCE_COLOR: Record<Presence, string> = { live: '#16a34a', away: '#f59e0b', offline: '#dc2626', not_on_trip: '#94a3b8' };
@@ -35,13 +61,14 @@ const STOP_COLOR = { reached: '#16a34a', skipped: '#f59e0b', pending: '#2563eb' 
  * Google map for live buses + a trip's stops / trail.
  * Map + markers are created once and only MOVED on updates (no full redraw per poll).
  */
-export function TripsMap({ buses = [], selectedBusId, onSelectBus, stops = [], trail = [], road = null, height = 460 }: Props) {
+export function TripsMap({ buses = [], selectedBusId, onSelectBus, stops = [], trail = [], road = null, plannedPath, height = 460, children }: Props) {
   const el = useRef<HTMLDivElement | null>(null);
   const map = useRef<google.maps.Map | null>(null);
   const busMarkers = useRef(new Map<string, google.maps.Marker>());
   const stopMarkers = useRef<google.maps.Marker[]>([]);
   const lines = useRef<google.maps.Polyline[]>([]);
   const roadLines = useRef<google.maps.Polyline[]>([]);
+  const anims = useRef(new Map<google.maps.Marker, number>());
   const fittedKey = useRef<string>('');
   const [status, setStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
   const onSelect = useRef(onSelectBus);
@@ -81,7 +108,7 @@ export function TripsMap({ buses = [], selectedBusId, onSelectBus, stops = [], t
         rotation: b.heading ?? 0,
         scale: b.id === selectedBusId ? 8 : 6,
         fillColor: PRESENCE_COLOR[b.presence],
-        fillOpacity: 1,
+        fillOpacity: b.presence === 'offline' ? 0.55 : 1,
         strokeColor: '#ffffff',
         strokeWeight: 2,
       };
@@ -91,7 +118,7 @@ export function TripsMap({ buses = [], selectedBusId, onSelectBus, stops = [], t
         marker.addListener('click', () => onSelect.current?.(b.id));
         busMarkers.current.set(b.id, marker);
       }
-      marker.setPosition({ lat: b.lat, lng: b.lng });
+      glide(marker, { lat: b.lat, lng: b.lng }, anims.current);
       marker.setIcon(icon);
       marker.setTitle(b.label);
       marker.setLabel(b.id === selectedBusId ? { text: b.label, color: '#0f172a', fontSize: '12px', fontWeight: '700', className: 'trips-map-label' } : null);
@@ -105,7 +132,7 @@ export function TripsMap({ buses = [], selectedBusId, onSelectBus, stops = [], t
   }, [buses, selectedBusId, status]);
 
   // Stops + route line + trail (redrawn only when they change).
-  const hasRoad = !!(road?.passed || road?.ahead);
+  const hasRoad = !!(road?.passed || road?.ahead) || (plannedPath?.length ?? 0) > 1;
   const stopsKey = stops.map((s) => `${s.id}:${s.status}`).join('|') + `#${trail.length}`;
   useEffect(() => {
     const m = map.current;
@@ -143,7 +170,7 @@ export function TripsMap({ buses = [], selectedBusId, onSelectBus, stops = [], t
 
   // Road-following line: passed (green) + ahead (blue), split at the bus. With a GPS trail (history),
   // the planned road is drawn faint underneath the actual trail.
-  const roadKey = `${road?.passed ?? ''}|${road?.ahead ?? ''}|${trail.length > 0}`;
+  const roadKey = `${road?.passed ?? ''}|${road?.ahead ?? ''}|${trail.length > 0}|${plannedPath?.length ?? 0}:${plannedPath?.[0]?.lat ?? ''}`;
   useEffect(() => {
     const m = map.current;
     if (status !== 'ready' || !m) return;
@@ -151,7 +178,7 @@ export function TripsMap({ buses = [], selectedBusId, onSelectBus, stops = [], t
     roadLines.current = [];
     if (!hasRoad) return;
     const passed = decodePolyline(road?.passed);
-    const ahead = decodePolyline(road?.ahead);
+    const ahead = road?.passed || road?.ahead ? decodePolyline(road?.ahead) : plannedPath ?? [];
     const line = (path: { lat: number; lng: number }[], color: string, opacity: number) =>
       path.length > 1 &&
       roadLines.current.push(new google.maps.Polyline({ map: m, path, strokeColor: color, strokeOpacity: opacity, strokeWeight: 5, clickable: false, zIndex: 2 }));
@@ -187,6 +214,7 @@ export function TripsMap({ buses = [], selectedBusId, onSelectBus, stops = [], t
           Set NEXT_PUBLIC_GOOGLE_MAPS_API_KEY (Maps JavaScript API) to see the map. All data is still listed below.
         </Alert>
       )}
+      {children}
     </Box>
   );
 }

@@ -1,5 +1,7 @@
 import {
   IconBuildingCommunity,
+  IconHistory,
+  IconMapPin,
   IconLayoutDashboard,
   IconPackage,
   IconBus,
@@ -24,6 +26,13 @@ export interface NavSection {
 /** School-admin sidebar navigation */
 export const SCHOOL_ADMIN_NAV: NavSection[] = [
   { label: 'Overview', items: [{ label: 'Dashboard', href: '/dashboard', icon: IconLayoutDashboard }] },
+  {
+    label: 'Live tracking',
+    items: [
+      { label: 'Live map', href: '/live', icon: IconMapPin },
+      { label: 'Trip history', href: '/trips', icon: IconHistory },
+    ],
+  },
   {
     label: 'Fleet',
     items: [
