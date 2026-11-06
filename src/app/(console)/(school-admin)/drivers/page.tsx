@@ -30,7 +30,7 @@ const displayName = (d: DriverSummary) => d.fullName ?? d.phone ?? 'Driver';
 
 const driverSchema = z.object({
   fullName: z.string().trim().min(2, 'Full name is required'),
-  phone: z.string().trim().regex(/^\+?[0-9]{7,15}$/, 'Enter a valid phone number (digits only)'),
+  phone: z.string().trim().regex(/^[6-9]\d{9}$/, 'Enter a valid 10-digit mobile number'),
 });
 type DriverForm = z.infer<typeof driverSchema>;
 

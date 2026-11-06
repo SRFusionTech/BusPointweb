@@ -8,7 +8,7 @@ import {
 import { useDisclosure } from '@mantine/hooks';
 import {
   IconBuildingCommunity, IconCalendarPlus, IconCircleCheck, IconCircleOff, IconCopy, IconDots, IconKey,
-  IconPlus, IconRefresh, IconSettings,
+  IconPlus, IconRefresh, IconSettings, IconSchool, IconUsersGroup,
 } from '@tabler/icons-react';
 import { api, type SchoolSummary, type PlanSummary } from '@/lib/api';
 import { notify, errorMessage } from '@/lib/notify';
@@ -22,6 +22,8 @@ import { formatDate, SchoolAvatar } from '@/components/super-admin/school-ui';
 
 const DAY_MS = 86_400_000;
 const settingsHref = (id: string) => `/super-admin/schools/${id}/settings`;
+const parentsHref = (id: string) => `/super-admin/schools/${id}/parents`;
+const classesHref = (id: string) => `/super-admin/schools/${id}/classes`;
 
 type StatusFilter = 'all' | 'active' | 'inactive';
 
@@ -176,6 +178,8 @@ export default function SchoolsPage() {
             </Menu.Target>
             <Menu.Dropdown>
               <Menu.Item leftSection={<IconSettings size={16} />} onClick={() => router.push(settingsHref(s.id))}>Settings</Menu.Item>
+              <Menu.Item leftSection={<IconUsersGroup size={16} />} onClick={() => router.push(parentsHref(s.id))}>Manage parents</Menu.Item>
+              <Menu.Item leftSection={<IconSchool size={16} />} onClick={() => router.push(classesHref(s.id))}>Manage classes</Menu.Item>
               <Menu.Item leftSection={<IconKey size={16} />} onClick={() => setResetTarget(s)}>Reset admin password</Menu.Item>
               <Menu.Divider />
               <Menu.Item leftSection={<IconCopy size={16} />} onClick={() => copyId(s)}>Copy school ID</Menu.Item>

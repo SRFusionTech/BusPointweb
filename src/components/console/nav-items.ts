@@ -4,7 +4,9 @@ import {
   IconPackage,
   IconBus,
   IconRoute,
+  IconSchool,
   IconUserCheck,
+  IconUsersGroup,
   type Icon,
 } from '@tabler/icons-react';
 
@@ -28,8 +30,10 @@ export const SCHOOL_ADMIN_NAV: NavSection[] = [
       { label: 'Buses', href: '/buses', icon: IconBus },
       { label: 'Routes', href: '/routes', icon: IconRoute },
       { label: 'Drivers', href: '/drivers', icon: IconUserCheck },
+      { label: 'Parents', href: '/parents', icon: IconUsersGroup },
     ],
   },
+  { label: 'School', items: [{ label: 'Classes', href: '/classes', icon: IconSchool }] },
 ];
 
 /** Super-admin sidebar navigation */

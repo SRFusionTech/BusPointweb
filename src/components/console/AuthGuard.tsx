@@ -30,7 +30,7 @@ export function AuthGuard({ requiredRole, children }: Props) {
           return;
         }
 
-        // Otherwise re-verify via the cookie (handles hard refresh)
+        // Otherwise re-verify the stored access token (handles hard refresh)
         const { data } = await api.auth.me();
         const role = data.role as UserRole;
 

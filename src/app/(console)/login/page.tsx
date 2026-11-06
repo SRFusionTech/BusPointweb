@@ -138,7 +138,7 @@ function BrandPanel() {
 export default function LoginPage() {
   const router = useRouter();
   const setUser = useAuthStore((s) => s.setUser);
-  const setAccessTokenExpiresAt = useAuthStore((s) => s.setAccessTokenExpiresAt);
+  const setTokens = useAuthStore((s) => s.setTokens);
   const showPageLoader = useUiStore((s) => s.showPageLoader);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -154,7 +154,6 @@ export default function LoginPage() {
       const res = await fetch(`${API_BASE}/api/auth/web/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ email: email.toLowerCase(), password }),
       });
       const json = await res.json().catch(() => null);
@@ -164,9 +163,9 @@ export default function LoginPage() {
         return;
       }
 
-      const { role, email: userEmail, accessTokenExpiresAt } = json.data;
+      const { role, email: userEmail, accessToken, refreshToken, accessTokenExpiresAt } = json.data;
+      setTokens({ accessToken, refreshToken, accessTokenExpiresAt });
       setUser({ email: userEmail, role });
-      if (accessTokenExpiresAt) setAccessTokenExpiresAt(accessTokenExpiresAt);
 
       // Stays visible until the destination's AuthGuard finishes (it hides it)
       showPageLoader('Taking you in…');

@@ -11,7 +11,7 @@
  * never fire multiple parallel refresh requests.
  */
 
-import { useAuthStore } from '@/stores/auth.store';
+import { useAuthStore, type AuthTokens } from '@/stores/auth.store';
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 
@@ -22,6 +22,15 @@ export interface ApiResult<T> {
   success: boolean;
   message: string;
   data: T;
+}
+
+/** Thrown by `request()` on a non-OK response. Carries the HTTP status so callers can
+ *  route specific errors (e.g. 409 conflict) to the right form field instead of a generic toast. */
+export class ApiError extends Error {
+  constructor(message: string, public readonly status: number) {
+    super(message);
+    this.name = 'ApiError';
+  }
 }
 
 // ─── Refresh mutex ────────────────────────────────────────────────────────────
@@ -37,9 +46,11 @@ async function ensureRefreshed(): Promise<void> {
 }
 
 async function doRefresh(): Promise<void> {
+  const { refreshToken } = useAuthStore.getState();
   const res = await fetch(`${BASE}/api/auth/refresh`, {
     method: 'POST',
-    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refreshToken }),
   });
 
   if (!res.ok) {
@@ -49,10 +60,17 @@ async function doRefresh(): Promise<void> {
     throw new Error('Session expired. Please log in again.');
   }
 
-  const json = (await res.json()) as ApiResult<{ accessTokenExpiresAt: number }>;
-  if (json.data?.accessTokenExpiresAt) {
-    useAuthStore.getState().setAccessTokenExpiresAt(json.data.accessTokenExpiresAt);
-  }
+  const json = (await res.json()) as ApiResult<AuthTokens>;
+  useAuthStore.getState().setTokens(json.data);
+}
+
+function authHeaders(init: RequestInit): HeadersInit {
+  const { accessToken } = useAuthStore.getState();
+  return {
+    'Content-Type': 'application/json',
+    ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
+    ...init.headers,
+  };
 }
 
 function isTokenExpiringSoon(): boolean {
@@ -73,28 +91,26 @@ async function request<T>(
 
   const res = await fetch(`${BASE}/api${path}`, {
     ...init,
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...init.headers },
+    headers: authHeaders(init),
   });
 
-  // Silent retry after 401
-  if (res.status === 401) {
+  // Silent retry after 401 (only if we have a refresh token to try)
+  if (res.status === 401 && useAuthStore.getState().refreshToken) {
     await ensureRefreshed(); // throws + redirects if refresh fails
     const retryRes = await fetch(`${BASE}/api${path}`, {
       ...init,
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json', ...init.headers },
+      headers: authHeaders(init), // re-read: carries the refreshed access token
     });
     if (!retryRes.ok) {
       const errJson = (await retryRes.json()) as ApiResult<null>;
-      throw new Error(errJson.message ?? 'Request failed');
+      throw new ApiError(errJson.message ?? 'Request failed', retryRes.status);
     }
     return retryRes.json() as Promise<ApiResult<T>>;
   }
 
   if (!res.ok) {
     const errJson = (await res.json()) as ApiResult<null>;
-    throw new Error(errJson.message ?? 'Request failed');
+    throw new ApiError(errJson.message ?? 'Request failed', res.status);
   }
 
   return res.json() as Promise<ApiResult<T>>;
@@ -111,7 +127,7 @@ export interface SchoolSummary {
 }
 
 /** Mirrors BusPointBackend src/schools/school-settings.ts */
-export type SubscriptionManager = 'platform' | 'school';
+export type SubscriptionManager = 'platform' | 'school' | 'both';
 
 export interface PlanSummary {
   id: string;
@@ -185,6 +201,7 @@ export interface MySchool {
   logoUrl: string | null;
   lat: number | null;
   lng: number | null;
+  subscriptionManagedBy: SubscriptionManager;
 }
 
 export interface RouteDetail extends RouteSummary {
@@ -201,6 +218,41 @@ export interface DriverSummary {
 }
 
 export interface DriverWithPassword extends DriverSummary {
+  tempPassword: string;
+}
+
+export interface ParentSummary {
+  id: string;
+  fullName: string | null;
+  phone: string | null;
+  childName: string | null;
+  childClass: { id: number; name: string } | null;
+  childSection: { id: number; name: string } | null;
+  isActive: boolean;
+  createdAt: string;
+  stop: { id: string; name: string; routeId: string; routeName: string } | null;
+  subscriptionExpiresAt: string | null;
+}
+
+export interface ClassSection {
+  id: number;
+  name: string;
+}
+
+/** A class in the school's class master, with its sections in display order. */
+export interface SchoolClass {
+  id: number;
+  name: string;
+  sortOrder: number;
+  sections: ClassSection[];
+  /** Parents whose child is in this class (list endpoint only). */
+  parentsCount?: number;
+}
+
+/** Sections to save: keep `id` for an existing section, omit it for a new one. */
+export type SectionInput = { id?: number; name: string };
+
+export interface ParentWithPassword extends ParentSummary {
   tempPassword: string;
 }
 
@@ -332,9 +384,83 @@ export const api = {
       request<null>(`/drivers/${id}`, { method: 'DELETE' }),
   },
 
+  parents: {
+    list: () => request<ParentSummary[]>('/parents'),
+
+    get: (id: string) => request<ParentSummary>(`/parents/${id}`),
+
+    create: (body: { fullName: string; phone: string; childName: string; childClassId: number; childSectionId: number; routeStopId: string; subscriptionExpiresAt?: string }) =>
+      request<ParentWithPassword>('/parents', { method: 'POST', body: JSON.stringify(body) }),
+
+    update: (id: string, body: { fullName?: string; phone?: string; childName?: string; childClassId?: number; childSectionId?: number; isActive?: boolean; routeStopId?: string; subscriptionExpiresAt?: string | null }) =>
+      request<ParentSummary>(`/parents/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+
+    resetPassword: (id: string) =>
+      request<{ tempPassword: string }>(`/parents/${id}/reset-password`, { method: 'POST' }),
+
+    remove: (id: string) =>
+      request<null>(`/parents/${id}`, { method: 'DELETE' }),
+  },
+
+  /** Super-admin: manage parents for any school, picked by school id. */
+  classes: {
+    list: () => request<SchoolClass[]>('/classes'),
+
+    create: (body: { name: string; sections: SectionInput[] }) =>
+      request<SchoolClass>('/classes', { method: 'POST', body: JSON.stringify(body) }),
+
+    update: (id: number, body: { name?: string; sections?: SectionInput[] }) =>
+      request<SchoolClass>(`/classes/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+
+    remove: (id: number) => request<null>(`/classes/${id}`, { method: 'DELETE' }),
+
+    /** `ids` = every class id of the school, in the new order. */
+    reorder: (ids: number[]) =>
+      request<SchoolClass[]>('/classes/reorder', { method: 'PATCH', body: JSON.stringify({ ids }) }),
+  },
+
+  superAdminClasses: {
+    list: (schoolId: string) => request<SchoolClass[]>(`/schools/${schoolId}/classes`),
+
+    create: (schoolId: string, body: { name: string; sections: SectionInput[] }) =>
+      request<SchoolClass>(`/schools/${schoolId}/classes`, { method: 'POST', body: JSON.stringify(body) }),
+
+    update: (schoolId: string, id: number, body: { name?: string; sections?: SectionInput[] }) =>
+      request<SchoolClass>(`/schools/${schoolId}/classes/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+
+    remove: (schoolId: string, id: number) =>
+      request<null>(`/schools/${schoolId}/classes/${id}`, { method: 'DELETE' }),
+
+    reorder: (schoolId: string, ids: number[]) =>
+      request<SchoolClass[]>(`/schools/${schoolId}/classes/reorder`, { method: 'PATCH', body: JSON.stringify({ ids }) }),
+  },
+
+  superAdminParents: {
+    list: (schoolId: string) => request<ParentSummary[]>(`/schools/${schoolId}/parents`),
+
+    create: (schoolId: string, body: { fullName: string; phone: string; childName: string; childClassId: number; childSectionId: number; routeStopId: string; subscriptionExpiresAt?: string }) =>
+      request<ParentWithPassword>(`/schools/${schoolId}/parents`, { method: 'POST', body: JSON.stringify(body) }),
+
+    update: (schoolId: string, id: string, body: { fullName?: string; phone?: string; childName?: string; childClassId?: number; childSectionId?: number; isActive?: boolean; routeStopId?: string; subscriptionExpiresAt?: string | null }) =>
+      request<ParentSummary>(`/schools/${schoolId}/parents/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+
+    resetPassword: (schoolId: string, id: string) =>
+      request<{ tempPassword: string }>(`/schools/${schoolId}/parents/${id}/reset-password`, { method: 'POST' }),
+
+    remove: (schoolId: string, id: string) =>
+      request<null>(`/schools/${schoolId}/parents/${id}`, { method: 'DELETE' }),
+  },
+
+  /** Super-admin: read-only access to a school's routes/stops, for picking a parent's pickup point. */
+  superAdminRoutes: {
+    list: (schoolId: string) => request<RouteSummary[]>(`/schools/${schoolId}/routes`),
+
+    get: (schoolId: string, routeId: string) => request<RouteDetail>(`/schools/${schoolId}/routes/${routeId}`),
+  },
+
   auth: {
     webLogin: (email: string, password: string) =>
-      request<{ role: string; email: string; accessTokenExpiresAt: number }>(
+      request<{ role: string; email: string } & AuthTokens>(
         '/auth/web/login',
         { method: 'POST', body: JSON.stringify({ email, password }) },
       ),
@@ -349,7 +475,11 @@ export const api = {
         school: { id: string; name: string; logoUrl: string | null } | null;
       }>('/auth/me'),
 
-    logout: () => request<null>('/auth/logout', { method: 'POST' }),
+    logout: () =>
+      request<null>('/auth/logout', {
+        method: 'POST',
+        body: JSON.stringify({ refreshToken: useAuthStore.getState().refreshToken }),
+      }),
 
     changePassword: (currentPassword: string, newPassword: string) =>
       request<null>('/auth/change-password', {
@@ -358,3 +488,6 @@ export const api = {
       }),
   },
 };
+
+/** Shared authed request (used by feature clients such as lib/tripsApi.ts). */
+export { request as apiRequest };

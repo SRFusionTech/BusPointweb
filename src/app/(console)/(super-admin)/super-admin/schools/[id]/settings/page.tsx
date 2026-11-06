@@ -9,7 +9,7 @@ import { z } from 'zod';
 import {
   Badge, Box, Button, Card, EmptyState, Grid, Group, NavLink, Radio, SimpleGrid, Skeleton, Stack, Text, TextInput, Title,
 } from '@mantine/core';
-import { IconAlertCircle, IconCalendarOff, IconCreditCard } from '@tabler/icons-react';
+import { IconAlertCircle, IconCalendarOff, IconCreditCard, IconSchool, IconUsersGroup } from '@tabler/icons-react';
 import { api, type SchoolSummary, type SchoolSettings, type PlanSummary } from '@/lib/api';
 import { notify, errorMessage } from '@/lib/notify';
 import { PageHeader } from '@/components/console/PageHeader';
@@ -18,7 +18,7 @@ import { SchoolAvatar, StatusBadge } from '@/components/super-admin/school-ui';
 
 // ─── Schema — keep in sync with backend UpdateSchoolSettingsDto ──────────────
 const schema = z.object({
-  subscriptionManagedBy: z.enum(['platform', 'school']),
+  subscriptionManagedBy: z.enum(['platform', 'school', 'both']),
   planId: z.string().nullable(),
   planExpiresAt: z.string().nullable(),
 });
@@ -41,12 +41,24 @@ const SUBSCRIPTION_OPTIONS: Array<{ value: SchoolSettings['subscriptionManagedBy
     title: 'School',
     description: 'The school admin owns parent subscriptions — plans, renewals and payment collection.',
   },
+  {
+    value: 'both',
+    title: 'Both',
+    description: 'BusPoint and the school admin both manage parent subscriptions.',
+  },
 ];
 
 /** Convert ISO timestamp to YYYY-MM-DD for <input type="date"> */
 function toDateInput(iso: string | null | undefined): string {
   if (!iso) return '';
   return iso.slice(0, 10);
+}
+
+/** Tomorrow's date as YYYY-MM-DD — the default expiry suggested when a management option is first picked. */
+function tomorrowDateInput(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().slice(0, 10);
 }
 
 /** True if the given YYYY-MM-DD is in the past relative to today */
@@ -149,6 +161,16 @@ export default function SchoolSettingsPage() {
           )
         }
         description={loading ? <Skeleton h={12} maw={320} mt={6} /> : school.address}
+        actions={
+          <>
+            <Button variant="default" leftSection={<IconSchool size={16} />} component={Link} href={`/super-admin/schools/${id}/classes`}>
+              Manage classes
+            </Button>
+            <Button variant="default" leftSection={<IconUsersGroup size={16} />} component={Link} href={`/super-admin/schools/${id}/parents`}>
+              Manage parents
+            </Button>
+          </>
+        }
       />
 
       <Grid gap="xl">
@@ -188,10 +210,14 @@ export default function SchoolSettingsPage() {
                       <Radio.Group
                         label="Managed by"
                         value={field.value}
-                        onChange={(v) => field.onChange(v as FormValues['subscriptionManagedBy'])}
+                        onChange={(v) => {
+                          field.onChange(v as FormValues['subscriptionManagedBy']);
+                          // Whichever option is picked, nudge toward an expiry date instead of leaving it blank.
+                          if (!planExpiresAt) setValue('planExpiresAt', tomorrowDateInput(), { shouldDirty: true });
+                        }}
                         readOnly={loading || isSubmitting}
                       >
-                        <SimpleGrid cols={{ base: 1, sm: 2 }} mt="sm">
+                        <SimpleGrid cols={{ base: 1, sm: 3 }} mt="sm">
                           {SUBSCRIPTION_OPTIONS.map((opt) => (
                             <Radio.Card key={opt.value} value={opt.value} p="md" radius="md" disabled={loading || isSubmitting}>
                               <Group wrap="nowrap" align="flex-start" gap="sm">

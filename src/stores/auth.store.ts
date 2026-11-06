@@ -19,12 +19,23 @@ export interface AuthUser {
   school?: AuthSchool | null;
 }
 
+export interface AuthTokens {
+  accessToken: string;
+  refreshToken: string;
+  /** Unix ms timestamp when the access token expires */
+  accessTokenExpiresAt: number;
+}
+
 interface AuthState {
   user: AuthUser | null;
+  /** Sent as `Authorization: Bearer <accessToken>` on every API call */
+  accessToken: string | null;
+  /** Posted to /auth/refresh and /auth/logout */
+  refreshToken: string | null;
   /** Unix ms timestamp when the current access token expires — used for proactive refresh */
   accessTokenExpiresAt: number | null;
   setUser: (user: AuthUser | null) => void;
-  setAccessTokenExpiresAt: (ts: number) => void;
+  setTokens: (tokens: AuthTokens) => void;
   logout: () => void;
 }
 
@@ -32,16 +43,23 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
       user: null,
+      accessToken: null,
+      refreshToken: null,
       accessTokenExpiresAt: null,
       setUser: (user) => set({ user }),
-      setAccessTokenExpiresAt: (accessTokenExpiresAt) => set({ accessTokenExpiresAt }),
-      logout: () => set({ user: null, accessTokenExpiresAt: null }),
+      setTokens: ({ accessToken, refreshToken, accessTokenExpiresAt }) =>
+        set({ accessToken, refreshToken, accessTokenExpiresAt }),
+      logout: () =>
+        set({ user: null, accessToken: null, refreshToken: null, accessTokenExpiresAt: null }),
     }),
     {
       name: 'buspoint-auth',
-      storage: createJSONStorage(() => sessionStorage),
+      // localStorage so the session survives reloads and is shared across tabs
+      storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         user: state.user,
+        accessToken: state.accessToken,
+        refreshToken: state.refreshToken,
         accessTokenExpiresAt: state.accessTokenExpiresAt,
       }),
     },

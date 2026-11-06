@@ -281,7 +281,7 @@ function AssignDriverModal({
   const [draft, setDraft] = useState<{ fullName: string; phone: string } | null>(null);
   const [created, setCreated] = useState<{ name: string; password: string } | null>(null);
 
-  const phoneValid = /^\+?[0-9]{7,15}$/.test(draft?.phone.trim() ?? '');
+  const phoneValid = /^[6-9]\d{9}$/.test(draft?.phone.trim() ?? '');
   const draftValid = !!draft && draft.fullName.trim().length >= 2 && phoneValid;
 
   async function createAndAssign() {
