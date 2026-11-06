@@ -65,7 +65,7 @@ export default function TripDetailPage() {
             </Grid.Col>
             <Grid.Col span={{ base: 12, md: 7 }}>
               <Paper withBorder radius="md" p={0}>
-                <TripsMap stops={trip.stops} trail={trip.trail} height={420} />
+                <TripsMap stops={trip.stops} trail={trip.trail} road={trip.road} height={420} />
               </Paper>
             </Grid.Col>
           </Grid>

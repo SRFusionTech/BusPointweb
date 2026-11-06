@@ -127,7 +127,7 @@ export default function LiveBusesPage() {
         </Grid.Col>
         <Grid.Col span={{ base: 12, md: 7 }}>
           <Paper withBorder radius="md" p={0}>
-            <TripsMap buses={mapBuses} selectedBusId={selectedId} onSelectBus={setSelectedId} stops={selected?.trip?.stops ?? []} />
+            <TripsMap buses={mapBuses} selectedBusId={selectedId} onSelectBus={setSelectedId} stops={selected?.trip?.stops ?? []} road={selected?.trip?.road} />
           </Paper>
         </Grid.Col>
       </Grid>

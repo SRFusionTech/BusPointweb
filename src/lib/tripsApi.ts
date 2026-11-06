@@ -33,6 +33,11 @@ export interface TripStop {
   students: TripStudent[];
 }
 
+export interface TripRoad {
+  passed: string | null;
+  ahead: string | null;
+}
+
 export interface TripSnapshot {
   id: string;
   status: 'in_progress' | 'completed';
@@ -51,6 +56,8 @@ export interface TripSnapshot {
   progress: { total: number; reached: number; skipped: number; pending: number };
   atStopId: string | null;
   nextStopId: string | null;
+  /** Road-following line (encoded polylines) split at the bus; null → straight lines between stops. */
+  road?: TripRoad | null;
   alerts: {
     gpsLost: { since: string; acknowledgedAt: string | null } | null;
     /** reason = driver's check-in reply (traffic / waiting_student / breakdown / emergency) if any. */

@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Box } from '@mantine/core';
 import { loadGoogleMaps } from '@/components/console/AddressAutocomplete';
-import type { Presence, TripStop } from '@/lib/tripsApi';
+import type { Presence, TripRoad, TripStop } from '@/lib/tripsApi';
+import { decodePolyline } from '@/lib/polyline';
 
 export interface MapBus {
   id: string;
@@ -22,6 +23,8 @@ interface Props {
   stops?: TripStop[];
   /** GPS trail (history). */
   trail?: { lat: number; lng: number }[];
+  /** Road-following route line from the server (replaces straight lines between stops). */
+  road?: TripRoad | null;
   height?: number | string;
 }
 
@@ -32,12 +35,13 @@ const STOP_COLOR = { reached: '#16a34a', skipped: '#f59e0b', pending: '#2563eb' 
  * Google map for live buses + a trip's stops / trail.
  * Map + markers are created once and only MOVED on updates (no full redraw per poll).
  */
-export function TripsMap({ buses = [], selectedBusId, onSelectBus, stops = [], trail = [], height = 460 }: Props) {
+export function TripsMap({ buses = [], selectedBusId, onSelectBus, stops = [], trail = [], road = null, height = 460 }: Props) {
   const el = useRef<HTMLDivElement | null>(null);
   const map = useRef<google.maps.Map | null>(null);
   const busMarkers = useRef(new Map<string, google.maps.Marker>());
   const stopMarkers = useRef<google.maps.Marker[]>([]);
   const lines = useRef<google.maps.Polyline[]>([]);
+  const roadLines = useRef<google.maps.Polyline[]>([]);
   const fittedKey = useRef<string>('');
   const [status, setStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
   const onSelect = useRef(onSelectBus);
@@ -101,6 +105,7 @@ export function TripsMap({ buses = [], selectedBusId, onSelectBus, stops = [], t
   }, [buses, selectedBusId, status]);
 
   // Stops + route line + trail (redrawn only when they change).
+  const hasRoad = !!(road?.passed || road?.ahead);
   const stopsKey = stops.map((s) => `${s.id}:${s.status}`).join('|') + `#${trail.length}`;
   useEffect(() => {
     const m = map.current;
@@ -125,7 +130,7 @@ export function TripsMap({ buses = [], selectedBusId, onSelectBus, stops = [], t
           zIndex: 5,
         }),
     );
-    if (stops.length > 1) {
+    if (stops.length > 1 && !hasRoad) {
       lines.current.push(
         new google.maps.Polyline({ map: m, path: stops.map((s) => ({ lat: s.lat, lng: s.lng })), strokeColor: '#2563eb', strokeOpacity: 0.35, strokeWeight: 4, clickable: false }),
       );
@@ -134,7 +139,30 @@ export function TripsMap({ buses = [], selectedBusId, onSelectBus, stops = [], t
       lines.current.push(new google.maps.Polyline({ map: m, path: trail, strokeColor: '#16a34a', strokeOpacity: 0.9, strokeWeight: 4, clickable: false }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stopsKey, status]);
+  }, [stopsKey, status, hasRoad]);
+
+  // Road-following line: passed (green) + ahead (blue), split at the bus. With a GPS trail (history),
+  // the planned road is drawn faint underneath the actual trail.
+  const roadKey = `${road?.passed ?? ''}|${road?.ahead ?? ''}|${trail.length > 0}`;
+  useEffect(() => {
+    const m = map.current;
+    if (status !== 'ready' || !m) return;
+    roadLines.current.forEach((x) => x.setMap(null));
+    roadLines.current = [];
+    if (!hasRoad) return;
+    const passed = decodePolyline(road?.passed);
+    const ahead = decodePolyline(road?.ahead);
+    const line = (path: { lat: number; lng: number }[], color: string, opacity: number) =>
+      path.length > 1 &&
+      roadLines.current.push(new google.maps.Polyline({ map: m, path, strokeColor: color, strokeOpacity: opacity, strokeWeight: 5, clickable: false, zIndex: 2 }));
+    if (trail.length > 0) {
+      line([...passed, ...ahead], '#2563eb', 0.35);
+    } else {
+      line(passed, '#16a34a', 0.9);
+      line(ahead, '#2563eb', 0.9);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roadKey, status]);
 
   // Fit bounds when the selection / data set changes (not on every poll).
   const fitKey = `${selectedBusId ?? ''}|${stops.map((s) => s.id).join(',')}|${buses.length}|${trail.length > 0}`;
