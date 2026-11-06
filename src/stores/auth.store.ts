@@ -65,3 +65,11 @@ export const useAuthStore = create<AuthState>()(
     },
   ),
 );
+
+// Keep tabs in sync: when another tab rotates tokens (or logs out), adopt its state so this tab
+// never posts an already-used refresh token.
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'buspoint-auth') void useAuthStore.persist.rehydrate();
+  });
+}

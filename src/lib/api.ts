@@ -34,19 +34,43 @@ export class ApiError extends Error {
 }
 
 // ─── Refresh mutex ────────────────────────────────────────────────────────────
+// The backend rotates refresh tokens (each is valid exactly once) and every tab shares the same
+// token via localStorage. So the lock must be cross-tab (Web Locks), and each tab must re-read
+// storage before refreshing — otherwise tab B posts the token tab A already rotated, gets
+// "already-used refresh token", and logs every tab out.
+const REFRESH_LOCK = 'buspoint-auth-refresh';
 let refreshingPromise: Promise<void> | null = null;
 
 async function ensureRefreshed(): Promise<void> {
   if (!refreshingPromise) {
-    refreshingPromise = doRefresh().finally(() => {
+    const locked = async (): Promise<void> => {
+      if (typeof navigator !== 'undefined' && navigator.locks) {
+        await navigator.locks.request(REFRESH_LOCK, () => doRefresh());
+      } else {
+        await doRefresh();
+      }
+    };
+    refreshingPromise = locked().finally(() => {
       refreshingPromise = null;
     });
   }
-  return refreshingPromise;
+  return refreshingPromise!;
 }
 
 async function doRefresh(): Promise<void> {
-  const { refreshToken } = useAuthStore.getState();
+  const before = useAuthStore.getState().accessToken;
+  // Pick up tokens another tab may have just rotated.
+  await useAuthStore.persist.rehydrate();
+  const { refreshToken, accessToken, accessTokenExpiresAt } = useAuthStore.getState();
+  if (!refreshToken) {
+    forceLogout();
+    throw new Error('Session expired. Please log in again.');
+  }
+  // Another tab already refreshed while we waited for the lock — use its tokens.
+  if (accessToken && accessToken !== before && accessTokenExpiresAt && accessTokenExpiresAt - PROACTIVE_REFRESH_BUFFER_MS > Date.now()) {
+    return;
+  }
+
   const res = await fetch(`${BASE}/api/auth/refresh`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -54,14 +78,23 @@ async function doRefresh(): Promise<void> {
   });
 
   if (!res.ok) {
-    // Refresh token expired or invalid — force logout
-    useAuthStore.getState().logout();
-    if (typeof window !== 'undefined') window.location.href = '/login';
+    // 5xx / gateway errors are transient — keep the session, let the caller see the error.
+    if (![400, 401, 402, 403].includes(res.status)) {
+      throw new ApiError('Could not reach the server. Please try again.', res.status);
+    }
+    forceLogout();
     throw new Error('Session expired. Please log in again.');
   }
 
   const json = (await res.json()) as ApiResult<AuthTokens>;
   useAuthStore.getState().setTokens(json.data);
+}
+
+function forceLogout() {
+  useAuthStore.getState().logout();
+  if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+    window.location.href = '/login';
+  }
 }
 
 function authHeaders(init: RequestInit): HeadersInit {
