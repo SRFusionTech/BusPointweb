@@ -1,4 +1,5 @@
 import { loadGoogleMaps } from '@/components/console/AddressAutocomplete';
+import { decodePolyline } from '@/lib/polyline';
 
 export interface LatLng {
   lat: number;
@@ -47,8 +48,33 @@ async function computeLeg(points: LatLng[], decode: (encoded: string) => LatLng[
   };
 }
 
-/** Road-following path through the points in the given order (no reordering). */
+/** Free OSRM server (OpenStreetMap roads) — allows browser calls (CORS *). */
+const OSRM_URL = 'https://router.project-osrm.org';
+
+async function osrmRoute(points: LatLng[], signal: AbortSignal): Promise<RoadRoute> {
+  const coords = points.map((p) => `${p.lng},${p.lat}`).join(';');
+  const res = await fetch(`${OSRM_URL}/route/v1/driving/${coords}?overview=full&geometries=polyline`, { signal });
+  if (!res.ok) throw new Error(`OSRM ${res.status}`);
+  const body = await res.json();
+  const route = body?.routes?.[0];
+  if (body?.code !== 'Ok' || !route?.geometry) throw new Error(`OSRM ${body?.code ?? 'no route'}`);
+  return { path: decodePolyline(route.geometry), meters: Math.round(route.distance ?? 0), seconds: Math.round(route.duration ?? 0) };
+}
+
+/**
+ * Road-following path through the points in the given order (no reordering).
+ * OSRM first (free); Google Routes API only if OSRM fails (paid, needs Routes API enabled on the key).
+ */
 export async function computeRoadRoute(points: LatLng[], signal: AbortSignal): Promise<RoadRoute> {
+  try {
+    return await osrmRoute(points, signal);
+  } catch (err) {
+    if (signal.aborted) throw err;
+  }
+  return googleRoadRoute(points, signal);
+}
+
+async function googleRoadRoute(points: LatLng[], signal: AbortSignal): Promise<RoadRoute> {
   if (!API_KEY || !(await loadGoogleMaps())) throw new Error('Maps unavailable');
   const geometry = (await google.maps.importLibrary('geometry')) as google.maps.GeometryLibrary;
   const decode = (encoded: string) =>
