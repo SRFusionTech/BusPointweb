@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useIdParam } from '@/components/console/StaticIdGate';
 import { ActionIcon, Button, Card, EmptyState, Group, Skeleton, Title, Tooltip } from '@mantine/core';
 import { IconAlertCircle, IconPlus, IconRefresh, IconSettings, IconUsersGroup } from '@tabler/icons-react';
 import { api, type SchoolSummary } from '@/lib/api';
@@ -12,7 +12,7 @@ import { ClassesManager, type ClassesClient } from '@/components/console/Classes
 import { SchoolAvatar, StatusBadge } from '@/components/super-admin/school-ui';
 
 export default function SuperAdminSchoolClassesPage() {
-  const { id: schoolId } = useParams<{ id: string }>();
+  const schoolId = useIdParam();
   const [school, setSchool] = useState<SchoolSummary | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 

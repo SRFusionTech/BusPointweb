@@ -1,15 +1,15 @@
-/* Login page. Global (not a CSS module): the Turbopack Tailwind loader in next.config handles every *.css. */
+/* Console login. Every color is a --bp-* token (tokens.generated.css). */
 
 .bp-login {
   min-height: 100dvh;
   display: grid;
   grid-template-columns: 1fr;
-  background: var(--mantine-color-body);
+  background: var(--bp-bg-canvas);
 }
 
 @media (min-width: 62em) {
   .bp-login {
-    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
   }
 }
 
@@ -18,12 +18,11 @@
   display: none;
   position: relative;
   overflow: hidden;
-  color: #fff;
+  color: var(--bp-text-on-brand);
   padding: 40px 56px;
   background:
-    radial-gradient(900px 520px at 0% -10%, rgba(59, 130, 246, 0.5), transparent 60%),
-    radial-gradient(700px 480px at 110% 110%, rgba(14, 165, 233, 0.35), transparent 60%),
-    linear-gradient(160deg, #0b1220 0%, #0f1b33 100%);
+    radial-gradient(60% 50% at 90% 10%, var(--bp-gradient-glow), transparent 70%),
+    radial-gradient(120% 120% at 0% 0%, var(--bp-gradient-brand-from), var(--bp-gradient-brand-via) 55%, var(--bp-gradient-brand-to));
 }
 
 @media (min-width: 62em) {
@@ -36,9 +35,12 @@
   content: '';
   position: absolute;
   inset: 0;
-  background-image: radial-gradient(rgba(255, 255, 255, 0.09) 1px, transparent 1px);
-  background-size: 22px 22px;
-  mask-image: linear-gradient(to bottom, #000 25%, transparent 90%);
+  background-image:
+    linear-gradient(to right, var(--bp-border-on-brand) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--bp-border-on-brand) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(70% 60% at 40% 30%, black, transparent);
+  opacity: 0.4;
   pointer-events: none;
 }
 
@@ -55,42 +57,47 @@
 
 .bp-login-headline {
   margin: 0;
-  font-size: clamp(28px, 2.6vw, 40px);
-  line-height: 1.15;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-family: var(--app-font-display);
+  font-weight: 500;
+  font-size: clamp(2rem, 2.8vw, 2.75rem);
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+  color: var(--bp-text-on-brand);
 }
 
-.bp-login-headline span {
-  background: linear-gradient(90deg, #93c5fd, #67e8f9);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+.bp-login-sub {
+  color: var(--bp-text-on-brand-muted);
 }
 
 /* ── Live trip card ────────────────────────────────────────── */
 .bp-login-glass {
   max-width: 420px;
   padding: 20px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(12px);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  border-radius: var(--mantine-radius-lg);
+  background: var(--bp-bg-brand-deep);
+  border: 1px solid var(--bp-border-on-brand);
+  box-shadow: var(--bp-shadow-e3);
 }
 
 .bp-login-pulse {
+  position: relative;
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #22c55e;
-  animation: bp-login-pulse 1.8s infinite;
+  background: var(--bp-live-pulse);
+}
+.bp-login-pulse::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--bp-live-pulse);
+  animation: bp-login-pulse 1.8s ease-out infinite;
 }
 
 @keyframes bp-login-pulse {
-  0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6); }
-  70% { box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+  0% { transform: scale(1); opacity: 0.6; }
+  100% { transform: scale(3); opacity: 0; }
 }
 
 .bp-login-stop {
@@ -98,7 +105,6 @@
   gap: 12px;
   padding-bottom: 14px;
 }
-
 .bp-login-stop:last-child {
   padding-bottom: 0;
 }
@@ -118,16 +124,14 @@
   height: 10px;
   margin-top: 4px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.25);
+  background: var(--bp-border-on-brand);
 }
-
 .bp-login-dot[data-state='done'] {
-  background: #60a5fa;
+  background: var(--bp-text-on-brand-muted);
 }
-
 .bp-login-dot[data-state='current'] {
-  background: #22c55e;
-  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.25);
+  background: var(--bp-live-pulse);
+  box-shadow: 0 0 0 4px var(--bp-live-glow);
 }
 
 .bp-login-line {
@@ -135,12 +139,17 @@
   top: 14px;
   bottom: -18px;
   width: 2px;
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--bp-border-on-brand);
+}
+.bp-login-line[data-done='true'] {
+  background: var(--bp-text-on-brand-muted);
 }
 
-.bp-login-line[data-done='true'] {
-  background: #60a5fa;
-}
+.bp-login-stop-name { color: var(--bp-text-on-brand); }
+.bp-login-stop-name[data-state='next'] { color: var(--bp-text-on-brand-muted); }
+.bp-login-stop-note { color: var(--bp-text-on-brand-muted); }
+.bp-login-stop-note[data-state='current'] { color: var(--bp-live-pulse); font-weight: 600; }
+.bp-login-live { color: var(--bp-live-pulse); }
 
 .bp-login-feature {
   display: flex;
@@ -151,13 +160,13 @@
 .bp-login-feature-icon {
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   flex-shrink: 0;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #93c5fd;
+  border-radius: var(--mantine-radius-md);
+  background: var(--bp-bg-brand-deep);
+  border: 1px solid var(--bp-border-on-brand);
+  color: var(--bp-accent-premium);
 }
 
 /* ── Form side ─────────────────────────────────────────────── */
@@ -176,7 +185,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bp-login-pulse {
+  .bp-login-pulse::after {
     animation: none;
   }
 }

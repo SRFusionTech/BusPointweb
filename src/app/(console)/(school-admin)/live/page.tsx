@@ -130,20 +130,20 @@ export default function LiveTrackingPage() {
         actions={<Button variant="default" leftSection={<IconRefresh size={16} />} onClick={() => setReloadKey((k) => k + 1)}>Refresh</Button>}
       />
 
-      {error && <Alert color="red" mb="md" title="Could not load live data">{error}</Alert>}
+      {error && <Alert color="danger" mb="md" title="Could not load live data">{error}</Alert>}
 
       <SimpleGrid cols={{ base: 2, sm: 3, lg: 6 }} mb="lg">
         <StatCard label="Buses" value={s?.totalBuses ?? '—'} icon={<IconBus size={18} />} loading={!fleet} />
-        <StatCard label="On trip" value={s?.onTrip ?? '—'} icon={<IconRoute size={18} />} color="blue" loading={!fleet} />
+        <StatCard label="On trip" value={s?.onTrip ?? '—'} icon={<IconRoute size={18} />} color="info" loading={!fleet} />
         <StatCard label="Live" value={buses.filter((b) => b.presence === 'live').length} icon={<IconWifi size={18} />} color="teal" loading={!fleet} />
-        <StatCard label="Away" value={buses.filter((b) => b.presence === 'away').length} icon={<IconWifi size={18} />} color="orange" loading={!fleet} />
-        <StatCard label="Offline" value={buses.filter((b) => b.presence === 'offline').length} icon={<IconWifiOff size={18} />} color="red" loading={!fleet} />
+        <StatCard label="Away" value={buses.filter((b) => b.presence === 'away').length} icon={<IconWifi size={18} />} color="warning" loading={!fleet} />
+        <StatCard label="Offline" value={buses.filter((b) => b.presence === 'offline').length} icon={<IconWifiOff size={18} />} color="danger" loading={!fleet} />
         <StatCard
           label="Alerts"
           value={buses.filter((b) => b.trip && (b.trip.alerts.sos || b.trip.alerts.gpsLost || b.trip.alerts.stationary)).length}
           hint={buses.some((b) => b.trip?.alerts.sos && !b.trip.alerts.sos.acknowledgedAt) ? 'SOS needs attention' : undefined}
           icon={<IconAlertTriangle size={18} />}
-          color="red"
+          color="danger"
           loading={!fleet}
         />
       </SimpleGrid>
@@ -234,9 +234,9 @@ function RouteRow({ item, skewMs, now, selected, onClick }: { item: RouteItem; s
             </Text>
           )}
           {elsewhere && <Text size="xs" c="dimmed">Bus is running “{elsewhere}”</Text>}
-          {t?.alerts.sos && <Badge color="red" variant={t.alerts.sos.acknowledgedAt ? 'light' : 'filled'} size="sm">SOS {fmtTime(t.alerts.sos.at)}</Badge>}
-          {t?.alerts.gpsLost && <Badge color="red" variant="light" size="sm">GPS lost since {fmtTime(t.alerts.gpsLost.since)}</Badge>}
-          {t?.alerts.stationary && <Badge color="orange" variant="light" size="sm">Not moving {t.alerts.stationary.minutes} min</Badge>}
+          {t?.alerts.sos && <Badge color="danger" variant={t.alerts.sos.acknowledgedAt ? 'light' : 'filled'} size="sm">SOS {fmtTime(t.alerts.sos.at)}</Badge>}
+          {t?.alerts.gpsLost && <Badge color="danger" variant="light" size="sm">GPS lost since {fmtTime(t.alerts.gpsLost.since)}</Badge>}
+          {t?.alerts.stationary && <Badge color="warning" variant="light" size="sm">Not moving {t.alerts.stationary.minutes} min</Badge>}
         </Stack>
         <PresencePill presence={t && bus ? bus.presence : 'not_on_trip'} ago={t ? fmtAgo(t.live?.lastPingAt, skewMs, now) : undefined} />
       </Group>
@@ -347,11 +347,11 @@ function StatusBanner({ presence, onTrip, hasLocation, ago, busName }: { presenc
       text: busName ? `Showing the planned route. ${busName} appears here when the driver starts a trip.` : 'Showing the planned route. Assign a bus to track it.',
     };
   } else if (!hasLocation) {
-    banner = { color: 'orange', title: 'Waiting for location', text: 'The trip has started but no GPS point has arrived yet.' };
+    banner = { color: 'warning', title: 'Waiting for location', text: 'The trip has started but no GPS point has arrived yet.' };
   } else if (presence === 'offline') {
-    banner = { color: 'red', title: 'Bus is offline', text: `Last location ${ago}. The marker shows where the bus was last seen.` };
+    banner = { color: 'danger', title: 'Bus is offline', text: `Last location ${ago}. The marker shows where the bus was last seen.` };
   } else if (presence === 'away') {
-    banner = { color: 'orange', title: 'Location delayed', text: `Last update ${ago} — weak network or GPS on the driver phone.` };
+    banner = { color: 'warning', title: 'Location delayed', text: `Last update ${ago} — weak network or GPS on the driver phone.` };
   }
   if (!banner) return null;
   return (

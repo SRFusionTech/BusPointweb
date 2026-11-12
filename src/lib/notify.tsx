@@ -6,9 +6,9 @@ export const notify = {
   success: (message: string, title?: string) =>
     notifications.show({ color: 'teal', icon: <IconCheck size={18} />, title, message }),
   error: (message: string, title = 'Something went wrong') =>
-    notifications.show({ color: 'red', icon: <IconAlertCircle size={18} />, title, message, autoClose: 6000 }),
+    notifications.show({ color: 'danger', icon: <IconAlertCircle size={18} />, title, message, autoClose: 6000 }),
   info: (message: string, title?: string) =>
-    notifications.show({ color: 'brand', icon: <IconInfoCircle size={18} />, title, message }),
+    notifications.show({ color: 'info', icon: <IconInfoCircle size={18} />, title, message }),
 };
 
 export const errorMessage = (err: unknown, fallback: string) =>

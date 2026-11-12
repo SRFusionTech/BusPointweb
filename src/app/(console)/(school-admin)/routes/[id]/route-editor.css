@@ -73,10 +73,10 @@
   max-width: 190px;
   padding: 5px 10px 5px 8px;
   border-radius: 999px;
-  background: rgba(15, 23, 42, 0.92);
-  color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.35);
+  background: var(--bp-bg-brand);
+  color: var(--bp-text-on-brand);
+  border: 1px solid var(--bp-border-on-brand);
+  box-shadow: var(--bp-shadow-e2);
   font-family: var(--mantine-font-family);
   font-size: 12px;
   font-weight: 600;
@@ -96,26 +96,26 @@
   margin-right: 6px;
   border-radius: 50%;
   vertical-align: 1px;
-  background: #60a5fa;
+  background: var(--bp-live-pulse);
 }
 
 .bp-map-label[data-kind='school']::before {
-  background: #ffffff;
+  background: var(--bp-text-on-brand);
 }
 
 .bp-map-label[data-kind='end']::before {
-  background: #f87171;
+  background: var(--bp-status-danger-solid);
 }
 
 .bp-map-label[data-selected='true'] {
   transform: translate(22px, -50%);
-  background: #2563eb;
-  border-color: #93c5fd;
-  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.55), 0 2px 8px rgba(15, 23, 42, 0.35);
+  background: var(--bp-live-route);
+  border-color: var(--bp-accent-premium);
+  box-shadow: 0 0 0 3px var(--bp-accent-premium), var(--bp-shadow-e2);
 }
 
 .bp-map-label[data-selected='true']::before {
-  background: #ffffff;
+  background: var(--bp-text-on-brand);
 }
 
 .bp-route-status {
@@ -202,7 +202,7 @@
   border-radius: 50%;
   font-size: 12px;
   font-weight: 700;
-  color: #fff;
+  color: var(--bp-text-on-brand);
   box-shadow: 0 0 0 3px var(--mantine-color-body);
 }
 

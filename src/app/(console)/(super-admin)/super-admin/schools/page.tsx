@@ -17,6 +17,7 @@ import { DataTable, type Column } from '@/components/console/DataTable';
 import { StatusPill } from '@/components/console/StatusPill';
 import { StatCard } from '@/components/console/StatCard';
 import { AddSchoolModal } from '@/components/super-admin/AddSchoolModal';
+import { PREFILL_SCHOOL_KEY } from '@/lib/prefill';
 import { ResetPasswordModal } from '@/components/super-admin/ResetPasswordModal';
 import { formatDate, SchoolAvatar } from '@/components/super-admin/school-ui';
 
@@ -36,6 +37,20 @@ export default function SchoolsPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [resetTarget, setResetTarget] = useState<SchoolSummary | null>(null);
   const [addOpened, addModal] = useDisclosure(false);
+  // "Convert to school" from a demo request hands over a prefill via sessionStorage.
+  const [prefill, setPrefill] = useState<Record<string, string> | undefined>(undefined);
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(PREFILL_SCHOOL_KEY);
+      if (!raw) return;
+      sessionStorage.removeItem(PREFILL_SCHOOL_KEY);
+      setPrefill(JSON.parse(raw) as Record<string, string>);
+      addModal.open();
+    } catch {
+      // storage unavailable — nothing to prefill
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // "Added last 30 days" is relative to the last successful load
   const [loadedAt, setLoadedAt] = useState(0);
@@ -144,7 +159,7 @@ export default function SchoolsPage() {
           hint={stats.total ? `${Math.round((stats.active / stats.total) * 100)}% of schools` : 'No schools yet'}
         />
         <StatCard label="Inactive" value={stats.inactive} icon={<IconCircleOff size={20} />} color="gray" loading={loading} hint={stats.inactive ? 'Logins blocked' : 'None blocked'} />
-        <StatCard label="Added last 30 days" value={stats.recent} icon={<IconCalendarPlus size={20} />} color="violet" loading={loading} hint="New onboardings" />
+        <StatCard label="Added last 30 days" value={stats.recent} icon={<IconCalendarPlus size={20} />} color="navy" loading={loading} hint="New onboardings" />
       </SimpleGrid>
 
       <DataTable
@@ -210,7 +225,16 @@ export default function SchoolsPage() {
         }
       />
 
-      <AddSchoolModal opened={addOpened} onClose={addModal.close} onCreated={loadSchools} plans={plans} />
+      <AddSchoolModal
+        opened={addOpened}
+        onClose={() => {
+          addModal.close();
+          setPrefill(undefined);
+        }}
+        onCreated={loadSchools}
+        plans={plans}
+        initialValues={prefill}
+      />
       <ResetPasswordModal school={resetTarget} onClose={() => setResetTarget(null)} />
     </>
   );

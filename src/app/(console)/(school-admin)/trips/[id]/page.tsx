@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useIdParam } from '@/components/console/StaticIdGate';
 import { Alert, Grid, Group, Loader, Paper, Title } from '@mantine/core';
 import { PageHeader } from '@/components/console/PageHeader';
 import { DetailRows, PlateChip } from '@/components/console/DetailSection';
@@ -16,7 +16,7 @@ import {
 
 /** One trip: info, map with the GPS trail, every stop with students, and the full event log. */
 export default function TripDetailPage() {
-  const { id } = useParams<{ id: string }>();
+  const id = useIdParam();
   const [trip, setTrip] = useState<TripDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,7 +30,7 @@ export default function TripDetailPage() {
         title={trip ? `${DIRECTION_LABEL[trip.direction]} trip · ${trip.routeName}` : 'Trip'}
         breadcrumbs={[{ label: 'Trip history', href: '/trips' }, { label: trip ? fmtDateTime(trip.startedAt) : '…' }]}
       />
-      {error && <Alert color="red">{error}</Alert>}
+      {error && <Alert color="danger">{error}</Alert>}
       {!trip && !error && <Loader />}
 
       {trip && (

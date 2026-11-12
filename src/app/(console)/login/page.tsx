@@ -9,10 +9,9 @@ import { z } from 'zod';
 import {
   Alert, Anchor, Box, Button, Group, PasswordInput, Stack, Text, TextInput, ThemeIcon, Title,
 } from '@mantine/core';
-import {
-  IconAlertCircle, IconBellRinging, IconBus, IconDeviceMobile, IconLock, IconMail, IconMapPin,
-  IconShieldCheck,
-} from '@tabler/icons-react';
+import { IconAlertCircle, IconClockHour4, IconDeviceMobile, IconLock, IconMail, IconMapPin, IconShieldCheck } from '@tabler/icons-react';
+import { Logo } from '@/components/brand/Logo';
+import { API_BASE } from '@/lib/apiBase';
 import { ColorSchemeToggle } from '@/components/console/ColorSchemeToggle';
 import { useAuthStore } from '@/stores/auth.store';
 import { useUiStore } from '@/stores/ui.store';
@@ -40,8 +39,6 @@ const ROLE_REDIRECT: Record<string, string> = {
   school_admin: '/dashboard',
 };
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
-
 const schema = z.object({
   email: z.string().trim().min(1, 'Email is required').email('Enter a valid email'),
   password: z.string().min(1, 'Password is required').min(6, 'Password must be at least 6 characters'),
@@ -50,55 +47,50 @@ type FormValues = z.infer<typeof schema>;
 
 // Illustrative trip shown on the brand panel
 const DEMO_STOPS = [
-  { name: 'Ameerpet', note: 'Picked up 6 students', time: '7:10', state: 'done' },
-  { name: 'SR Nagar', note: 'Picked up 4 students', time: '7:18', state: 'done' },
-  { name: 'Erragadda', note: 'Arriving in 2 min', time: '7:24', state: 'current' },
-  { name: 'Bharat Nagar', note: 'Parents notified', time: '7:31', state: 'next' },
-  { name: 'School', note: 'Expected on time', time: '7:55', state: 'next' },
+  { name: 'Palm Grove Gate', note: '6 students picked up', time: '7:10', state: 'done' },
+  { name: 'Lakeside Villas', note: '4 students picked up', time: '7:18', state: 'done' },
+  { name: 'Marina Walk', note: 'Arriving in 2 min', time: '7:24', state: 'current' },
+  { name: 'Al Wasl Park', note: 'About 7:31', time: '7:31', state: 'next' },
+  { name: 'School', note: 'On time', time: '7:55', state: 'next' },
 ] as const;
 
 const FEATURES = [
-  { icon: IconMapPin, title: 'Live GPS tracking', text: 'See every bus on the map as it moves.' },
-  { icon: IconBellRinging, title: 'Stop-by-stop alerts', text: 'Parents are notified before the bus reaches them.' },
-  { icon: IconShieldCheck, title: 'Built for schools', text: 'Separate access for admins, drivers and parents.' },
+  { icon: IconMapPin, title: 'Your whole fleet, live', text: 'Every bus on one map, updated every few seconds.' },
+  { icon: IconClockHour4, title: 'Arrival times for every stop', text: 'Families see exactly when to step out.' },
+  { icon: IconShieldCheck, title: 'Private by design', text: 'Separate access for admins, drivers and families.' },
 ];
-
-function BrandMark({ inverted }: { inverted?: boolean }) {
-  return (
-    <Group gap="xs" wrap="nowrap">
-      <ThemeIcon size={34} radius="md" variant={inverted ? 'white' : 'filled'}>
-        <IconBus size={19} />
-      </ThemeIcon>
-      <Text fw={700} size="lg" c={inverted ? 'white' : undefined}>BusPoint</Text>
-    </Group>
-  );
-}
 
 function BrandPanel() {
   return (
     <aside className={classes.brand} aria-hidden="true">
       <div className={classes.brandInner}>
-        <BrandMark inverted />
+        <span style={{ color: 'var(--bp-text-on-brand)', display: 'inline-flex' }}>
+          <Logo size={32} />
+        </span>
 
         <Stack gap="xl">
           <Box>
-            <h1 className={classes.headline}>
-              Every school bus,<br /><span>live on one screen.</span>
-            </h1>
-            <Text c="rgba(255,255,255,0.7)" size="md" mt="md" maw={440}>
-              Plan routes, assign drivers and keep parents informed — from the first stop to the school gate.
+            <h1 className={classes.headline}>Every school bus, live on one calm screen.</h1>
+            <Text className="bp-login-sub" size="md" mt="md" maw={440}>
+              Plan routes, assign drivers and keep families informed — from the first stop to the school gate.
             </Text>
           </Box>
 
           <div className={classes.glass}>
             <Group justify="space-between" mb="md">
               <div>
-                <Text size="sm" fw={600} c="white">Route A · Morning</Text>
-                <Text size="xs" c="rgba(255,255,255,0.6)">Bus 4 · TS 09 AB 1234</Text>
+                <Text size="sm" fw={600} className="bp-login-stop-name">
+                  Morning route · Bus 04
+                </Text>
+                <Text size="xs" className="bp-login-stop-note">
+                  14 students on board
+                </Text>
               </div>
               <Group gap={8} wrap="nowrap">
                 <span className={classes.pulse} />
-                <Text size="xs" fw={600} c="#86efac">Live</Text>
+                <Text size="xs" fw={600} className="bp-login-live">
+                  Live
+                </Text>
               </Group>
             </Group>
             {DEMO_STOPS.map((s, i) => (
@@ -108,12 +100,16 @@ function BrandPanel() {
                   {i < DEMO_STOPS.length - 1 && <span className={classes.line} data-done={s.state === 'done'} />}
                 </div>
                 <Box style={{ flex: 1, minWidth: 0 }}>
-                  <Text size="sm" fw={s.state === 'current' ? 600 : 500} c={s.state === 'next' ? 'rgba(255,255,255,0.75)' : 'white'}>
+                  <Text size="sm" fw={s.state === 'current' ? 600 : 500} className="bp-login-stop-name" data-state={s.state}>
                     {s.name}
                   </Text>
-                  <Text size="xs" c={s.state === 'current' ? '#86efac' : 'rgba(255,255,255,0.5)'}>{s.note}</Text>
+                  <Text size="xs" className="bp-login-stop-note" data-state={s.state}>
+                    {s.note}
+                  </Text>
                 </Box>
-                <Text size="xs" c="rgba(255,255,255,0.55)" ff="monospace">{s.time}</Text>
+                <Text size="xs" className="bp-login-stop-note tnum">
+                  {s.time}
+                </Text>
               </div>
             ))}
           </div>
@@ -122,10 +118,16 @@ function BrandPanel() {
         <Stack gap="md">
           {FEATURES.map((f) => (
             <div key={f.title} className={classes.feature}>
-              <span className={classes.featureIcon}><f.icon size={17} stroke={1.75} /></span>
+              <span className={classes.featureIcon}>
+                <f.icon size={18} stroke={1.75} />
+              </span>
               <div>
-                <Text size="sm" fw={600} c="white">{f.title}</Text>
-                <Text size="xs" c="rgba(255,255,255,0.6)">{f.text}</Text>
+                <Text size="sm" fw={600} className="bp-login-stop-name">
+                  {f.title}
+                </Text>
+                <Text size="xs" className="bp-login-stop-note">
+                  {f.text}
+                </Text>
               </div>
             </div>
           ))}
@@ -181,8 +183,8 @@ export default function LoginPage() {
 
       <main className={classes.formSide}>
         <Group justify="space-between">
-          <Anchor component={Link} href="/" underline="never" c="inherit" hiddenFrom="md">
-            <BrandMark />
+          <Anchor component={Link} href="/" underline="never" c="var(--bp-text-brand)" hiddenFrom="md" aria-label="BusPoint home">
+            <Logo size={28} />
           </Anchor>
           <Box visibleFrom="md" />
           <ColorSchemeToggle />
@@ -190,15 +192,17 @@ export default function LoginPage() {
 
         <div className={classes.formWrap}>
           <Box w="100%" maw={380}>
-            <Title order={1} fz={28} fw={700} style={{ letterSpacing: '-0.02em' }}>Sign in</Title>
+            <Title order={1} className="font-display" fz="h1">
+              Welcome back
+            </Title>
             <Text c="dimmed" size="sm" mt={6} mb={28}>
-              Welcome back. Use the account your school or the BusPoint team set up for you.
+              Sign in to the BusPoint console with the account your school or the BusPoint team set up for you.
             </Text>
 
             <form onSubmit={handleSubmit(onSubmit)} noValidate>
               <Stack gap="md">
                 {formError && (
-                  <Alert color="red" variant="light" icon={<IconAlertCircle size={18} />} role="alert">
+                  <Alert color="danger" variant="light" icon={<IconAlertCircle size={18} />} role="alert">
                     {formError}
                   </Alert>
                 )}
@@ -250,7 +254,7 @@ export default function LoginPage() {
         </div>
 
         <Group justify="space-between" gap="xs">
-          <Text size="xs" c="dimmed">© BusPoint by SRFusion</Text>
+          <Text size="xs" c="dimmed">BusPoint by SRFusion</Text>
           <Anchor component={Link} href="/" size="xs" c="dimmed">Back to website</Anchor>
         </Group>
       </main>

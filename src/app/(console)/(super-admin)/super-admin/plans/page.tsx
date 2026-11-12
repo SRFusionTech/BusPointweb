@@ -175,7 +175,7 @@ export default function PlansPage() {
       header: 'Plan',
       render: (p) => (
         <Group gap="sm" wrap="nowrap">
-          <ThemeIcon variant="light" color="violet" size={36} radius="md" style={{ flexShrink: 0 }}>
+          <ThemeIcon variant="light" color="navy" size={36} radius="md" style={{ flexShrink: 0 }}>
             <IconPackage size={18} stroke={1.75} />
           </ThemeIcon>
           <div style={{ minWidth: 0 }}>
@@ -218,7 +218,7 @@ export default function PlansPage() {
       />
 
       <SimpleGrid cols={{ base: 1, xs: 3 }} spacing="md" mb="lg">
-        <StatCard label="Total plans" value={total} icon={<IconPackage size={20} />} color="violet" loading={loading} hint="Defined on the platform" />
+        <StatCard label="Total plans" value={total} icon={<IconPackage size={20} />} color="navy" loading={loading} hint="Defined on the platform" />
         <StatCard
           label="Active"
           value={active}
@@ -269,13 +269,13 @@ export default function PlansPage() {
                 {p.isActive ? 'Deactivate' : 'Activate'}
               </Menu.Item>
               <Menu.Divider />
-              <Menu.Item color="red" leftSection={<IconTrash size={16} />} onClick={() => startDelete(p)}>Delete</Menu.Item>
+              <Menu.Item color="danger" leftSection={<IconTrash size={16} />} onClick={() => startDelete(p)}>Delete</Menu.Item>
             </Menu.Dropdown>
           </Menu>
         )}
         renderMobileRow={(p) => (
           <Group gap="sm" wrap="nowrap">
-            <ThemeIcon variant="light" color="violet" size={36} radius="md"><IconPackage size={18} /></ThemeIcon>
+            <ThemeIcon variant="light" color="navy" size={36} radius="md"><IconPackage size={18} /></ThemeIcon>
             <div style={{ minWidth: 0, flex: 1 }}>
               <Group gap="xs" justify="space-between" wrap="nowrap">
                 <Text fw={600} size="sm" truncate="end">{p.name}</Text>

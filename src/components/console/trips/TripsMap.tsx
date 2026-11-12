@@ -5,6 +5,7 @@ import { Alert, Box } from '@mantine/core';
 import { loadGoogleMaps } from '@/components/console/AddressAutocomplete';
 import type { Presence, TripRoad, TripStop } from '@/lib/tripsApi';
 import { decodePolyline } from '@/lib/polyline';
+import { usePalette } from '@/theme/usePalette';
 
 export interface MapBus {
   id: string;
@@ -54,8 +55,14 @@ function glide(marker: google.maps.Marker, to: google.maps.LatLngLiteral, anim: 
   anim.set(marker, requestAnimationFrame(step));
 }
 
-const PRESENCE_COLOR: Record<Presence, string> = { live: '#16a34a', away: '#f59e0b', offline: '#dc2626', not_on_trip: '#94a3b8' };
-const STOP_COLOR = { reached: '#16a34a', skipped: '#f59e0b', pending: '#2563eb' } as const;
+type Palette = ReturnType<typeof usePalette>['colors'];
+const presenceColor = (c: Palette): Record<Presence, string> => ({
+  live: c.live.pulse,
+  away: c.status.warning.solid,
+  offline: c.status.danger.solid,
+  not_on_trip: c.status.neutral.solid,
+});
+const stopColor = (c: Palette) => ({ reached: c.status.success.solid, skipped: c.status.warning.solid, pending: c.live.route }) as const;
 
 /**
  * Google map for live buses + a trip's stops / trail.
@@ -71,6 +78,7 @@ export function TripsMap({ buses = [], selectedBusId, onSelectBus, stops = [], t
   const anims = useRef(new Map<google.maps.Marker, number>());
   const fittedKey = useRef<string>('');
   const [status, setStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
+  const { colors: c, mapStyle, scheme } = usePalette();
   const onSelect = useRef(onSelectBus);
   useEffect(() => {
     onSelect.current = onSelectBus;
@@ -82,8 +90,10 @@ export function TripsMap({ buses = [], selectedBusId, onSelectBus, stops = [], t
       if (!alive) return;
       if (!ok || !el.current) return setStatus('unavailable');
       map.current = new google.maps.Map(el.current, {
-        center: { lat: 17.385, lng: 78.4867 },
-        zoom: 12,
+        // No hard-coded city: fitBounds() frames the school's data as soon as it loads.
+        center: { lat: 0, lng: 0 },
+        zoom: 2,
+        styles: mapStyle,
         mapTypeControl: false,
         streetViewControl: false,
         fullscreenControl: true,
@@ -96,6 +106,11 @@ export function TripsMap({ buses = [], selectedBusId, onSelectBus, stops = [], t
     };
   }, []);
 
+  // Brand map style follows light/dark.
+  useEffect(() => {
+    if (status === 'ready') map.current?.setOptions({ styles: mapStyle });
+  }, [mapStyle, status]);
+
   // Bus markers: create / move / remove.
   useEffect(() => {
     const m = map.current;
@@ -107,9 +122,9 @@ export function TripsMap({ buses = [], selectedBusId, onSelectBus, stops = [], t
         path: b.heading != null ? google.maps.SymbolPath.FORWARD_CLOSED_ARROW : google.maps.SymbolPath.CIRCLE,
         rotation: b.heading ?? 0,
         scale: b.id === selectedBusId ? 8 : 6,
-        fillColor: PRESENCE_COLOR[b.presence],
+        fillColor: presenceColor(c)[b.presence],
         fillOpacity: b.presence === 'offline' ? 0.55 : 1,
-        strokeColor: '#ffffff',
+        strokeColor: c.live.markerRing,
         strokeWeight: 2,
       };
       let marker = busMarkers.current.get(b.id);
@@ -121,7 +136,7 @@ export function TripsMap({ buses = [], selectedBusId, onSelectBus, stops = [], t
       glide(marker, { lat: b.lat, lng: b.lng }, anims.current);
       marker.setIcon(icon);
       marker.setTitle(b.label);
-      marker.setLabel(b.id === selectedBusId ? { text: b.label, color: '#0f172a', fontSize: '12px', fontWeight: '700', className: 'trips-map-label' } : null);
+      marker.setLabel(b.id === selectedBusId ? { text: b.label, color: c.text.primary, fontSize: '12px', fontWeight: '700', className: 'trips-map-label' } : null);
     }
     for (const [id, marker] of busMarkers.current) {
       if (!seen.has(id)) {
@@ -129,7 +144,7 @@ export function TripsMap({ buses = [], selectedBusId, onSelectBus, stops = [], t
         busMarkers.current.delete(id);
       }
     }
-  }, [buses, selectedBusId, status]);
+  }, [buses, selectedBusId, status, c]);
 
   // Stops + route line + trail (redrawn only when they change).
   const hasRoad = !!(road?.passed || road?.ahead) || (plannedPath?.length ?? 0) > 1;
@@ -145,13 +160,13 @@ export function TripsMap({ buses = [], selectedBusId, onSelectBus, stops = [], t
           map: m,
           position: { lat: s.lat, lng: s.lng },
           title: `${s.seq + 1}. ${s.name} (${s.status})`,
-          label: { text: s.kind === 'school' ? 'S' : String(s.seq + 1), color: '#ffffff', fontSize: '11px', fontWeight: '700' },
+          label: { text: s.kind === 'school' ? 'S' : String(s.seq + 1), color: c.text.onBrand, fontSize: '11px', fontWeight: '700' },
           icon: {
             path: google.maps.SymbolPath.CIRCLE,
             scale: s.kind === 'school' ? 11 : 9,
-            fillColor: s.kind === 'school' ? '#0f172a' : STOP_COLOR[s.status],
+            fillColor: s.kind === 'school' ? c.live.school : stopColor(c)[s.status],
             fillOpacity: 1,
-            strokeColor: '#ffffff',
+            strokeColor: c.live.markerRing,
             strokeWeight: 2,
           },
           zIndex: 5,
@@ -159,14 +174,14 @@ export function TripsMap({ buses = [], selectedBusId, onSelectBus, stops = [], t
     );
     if (stops.length > 1 && !hasRoad) {
       lines.current.push(
-        new google.maps.Polyline({ map: m, path: stops.map((s) => ({ lat: s.lat, lng: s.lng })), strokeColor: '#2563eb', strokeOpacity: 0.35, strokeWeight: 4, clickable: false }),
+        new google.maps.Polyline({ map: m, path: stops.map((s) => ({ lat: s.lat, lng: s.lng })), strokeColor: c.live.route, strokeOpacity: 0.35, strokeWeight: 4, clickable: false }),
       );
     }
     if (trail.length > 1) {
-      lines.current.push(new google.maps.Polyline({ map: m, path: trail, strokeColor: '#16a34a', strokeOpacity: 0.9, strokeWeight: 4, clickable: false }));
+      lines.current.push(new google.maps.Polyline({ map: m, path: trail, strokeColor: c.live.route, strokeOpacity: 0.9, strokeWeight: 4, clickable: false }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stopsKey, status, hasRoad]);
+  }, [stopsKey, status, hasRoad, scheme]);
 
   // Road-following line: passed (green) + ahead (blue), split at the bus. With a GPS trail (history),
   // the planned road is drawn faint underneath the actual trail.
@@ -183,13 +198,13 @@ export function TripsMap({ buses = [], selectedBusId, onSelectBus, stops = [], t
       path.length > 1 &&
       roadLines.current.push(new google.maps.Polyline({ map: m, path, strokeColor: color, strokeOpacity: opacity, strokeWeight: 5, clickable: false, zIndex: 2 }));
     if (trail.length > 0) {
-      line([...passed, ...ahead], '#2563eb', 0.35);
+      line([...passed, ...ahead], c.live.route, 0.35);
     } else {
-      line(passed, '#16a34a', 0.9);
-      line(ahead, '#2563eb', 0.9);
+      line(passed, c.live.routeTravelled, 0.9);
+      line(ahead, c.live.route, 0.95);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roadKey, status]);
+  }, [roadKey, status, scheme]);
 
   // Fit bounds when the selection / data set changes (not on every poll).
   const fitKey = `${selectedBusId ?? ''}|${stops.map((s) => s.id).join(',')}|${buses.length}|${trail.length > 0}`;
@@ -210,8 +225,8 @@ export function TripsMap({ buses = [], selectedBusId, onSelectBus, stops = [], t
     <Box pos="relative" h={height} style={{ borderRadius: 'var(--mantine-radius-md)', overflow: 'hidden' }}>
       <div ref={el} style={{ position: 'absolute', inset: 0 }} />
       {status === 'unavailable' && (
-        <Alert color="orange" m="md" title="Map unavailable">
-          Set NEXT_PUBLIC_GOOGLE_MAPS_API_KEY (Maps JavaScript API) to see the map. All data is still listed below.
+        <Alert color="warning" m="md" title="Map unavailable">
+          The map couldn’t load right now. Everything is still listed below.
         </Alert>
       )}
       {children}

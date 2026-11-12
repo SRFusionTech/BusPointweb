@@ -167,7 +167,7 @@ export default function RoutesPage() {
       header: 'Route',
       render: (r) => (
         <Group gap="sm" wrap="nowrap">
-          <ThemeIcon variant="light" color="blue" size={36} radius="md" style={{ flexShrink: 0 }}>
+          <ThemeIcon variant="light" color="info" size={36} radius="md" style={{ flexShrink: 0 }}>
             <IconRoute size={18} stroke={1.75} />
           </ThemeIcon>
           <div style={{ minWidth: 0 }}>
@@ -226,8 +226,8 @@ export default function RoutesPage() {
       />
 
       <SimpleGrid cols={{ base: 1, xs: 2, lg: 4 }} spacing="md" mb="lg">
-        <StatCard label="Total routes" value={total} icon={<IconRoute size={20} />} color="blue" loading={loading} hint="Defined for your school" />
-        <StatCard label="Total stops" value={totalStops} icon={<IconMapPin size={20} />} color="grape" loading={loading} hint={total ? `${(totalStops / total).toFixed(1)} per route on average` : '—'} />
+        <StatCard label="Total routes" value={total} icon={<IconRoute size={20} />} color="info" loading={loading} hint="Defined for your school" />
+        <StatCard label="Total stops" value={totalStops} icon={<IconMapPin size={20} />} color="brass" loading={loading} hint={total ? `${(totalStops / total).toFixed(1)} per route on average` : '—'} />
         <StatCard
           label="In use"
           value={inUse}
@@ -237,7 +237,7 @@ export default function RoutesPage() {
           progress={total ? (inUse / total) * 100 : 0}
           hint={total ? `${total - inUse} not assigned to a bus` : 'No routes yet'}
         />
-        <StatCard label="Need stops" value={needStops} icon={<IconAlertTriangle size={20} />} color="orange" loading={loading} hint={needStops ? 'Open the route to add stops' : 'Every route has stops'} />
+        <StatCard label="Need stops" value={needStops} icon={<IconAlertTriangle size={20} />} color="warning" loading={loading} hint={needStops ? 'Open the route to add stops' : 'Every route has stops'} />
       </SimpleGrid>
 
       <DataTable
@@ -273,7 +273,7 @@ export default function RoutesPage() {
               <Menu.Item leftSection={<IconMapPin size={16} />} onClick={() => openRoute(r)}>Edit stops</Menu.Item>
               <Menu.Item leftSection={<IconEdit size={16} />} onClick={() => startRename(r)}>Rename</Menu.Item>
               <Menu.Divider />
-              <Menu.Item color="red" leftSection={<IconTrash size={16} />} onClick={() => startDelete(r)}>Delete</Menu.Item>
+              <Menu.Item color="danger" leftSection={<IconTrash size={16} />} onClick={() => startDelete(r)}>Delete</Menu.Item>
             </Menu.Dropdown>
           </Menu>
         )}
@@ -281,7 +281,7 @@ export default function RoutesPage() {
           const s = routeState(r);
           return (
             <Group gap="sm" wrap="nowrap">
-              <ThemeIcon variant="light" color="blue" size={36} radius="md"><IconRoute size={18} /></ThemeIcon>
+              <ThemeIcon variant="light" color="info" size={36} radius="md"><IconRoute size={18} /></ThemeIcon>
               <div style={{ minWidth: 0, flex: 1 }}>
                 <Group gap="xs" justify="space-between" wrap="nowrap">
                   <Text fw={600} size="sm" truncate="end">{r.name}</Text>

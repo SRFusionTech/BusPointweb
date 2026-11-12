@@ -1,5 +1,6 @@
 import {
   IconBuildingCommunity,
+  IconInbox,
   IconHistory,
   IconMapPin,
   IconLayoutDashboard,
@@ -16,6 +17,8 @@ export interface NavItem {
   label: string;
   href: string;
   icon: Icon;
+  /** Live count badge shown next to the label. */
+  badge?: 'demoRequests';
 }
 
 export interface NavSection {
@@ -49,8 +52,9 @@ export const SCHOOL_ADMIN_NAV: NavSection[] = [
 export const SUPER_ADMIN_NAV: NavSection[] = [
   { label: 'Overview', items: [{ label: 'Dashboard', href: '/super-admin/dashboard', icon: IconLayoutDashboard }] },
   {
-    label: 'Management',
+    label: 'Growth & schools',
     items: [
+      { label: 'Demo requests', href: '/super-admin/demo-requests', icon: IconInbox, badge: 'demoRequests' },
       { label: 'Schools', href: '/super-admin/schools', icon: IconBuildingCommunity },
       { label: 'Plans', href: '/super-admin/plans', icon: IconPackage },
     ],

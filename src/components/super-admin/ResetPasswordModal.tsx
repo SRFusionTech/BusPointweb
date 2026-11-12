@@ -43,7 +43,7 @@ export function ResetPasswordModal({ school, onClose }: Props) {
     >
       {result ? (
         <Stack>
-          <Alert color="yellow" variant="light" icon={<IconAlertTriangle size={18} />}>
+          <Alert color="warning" variant="light" icon={<IconAlertTriangle size={18} />}>
             Share this password with the school admin now. It won&apos;t be shown again.
           </Alert>
           <DataList withDivider>
@@ -75,7 +75,7 @@ export function ResetPasswordModal({ school, onClose }: Props) {
           </Text>
           <Group justify="flex-end">
             <Button variant="default" onClick={close} disabled={loading}>Cancel</Button>
-            <Button color="red" onClick={handleReset} loading={loading}>Reset password</Button>
+            <Button color="danger" onClick={handleReset} loading={loading}>Reset password</Button>
           </Group>
         </Stack>
       )}

@@ -1,13 +1,8 @@
 import type { Metadata } from 'next';
-import { PageHeader } from '@/components/console/PageHeader';
+import { SchoolDashboard } from '@/components/console/dashboard/SchoolDashboard';
 
-export const metadata: Metadata = { title: 'Dashboard' };
+export const metadata: Metadata = { title: 'Overview' };
 
 export default function DashboardPage() {
-  return (
-    <PageHeader
-      title="Dashboard"
-      description="Welcome back — your school overview will appear here."
-    />
-  );
+  return <SchoolDashboard />;
 }

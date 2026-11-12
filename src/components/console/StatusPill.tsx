@@ -1,35 +1,37 @@
 import type { ReactNode } from 'react';
 
-export type PillTone = 'green' | 'orange' | 'red' | 'blue' | 'gray';
+export type PillTone = 'green' | 'orange' | 'red' | 'blue' | 'gray' | 'teal';
 
-const TONE_COLOR: Record<PillTone, string> = {
-  green: 'teal',
-  orange: 'orange',
-  red: 'red',
-  blue: 'blue',
-  gray: 'gray',
+/** Tone → semantic token group (tokens.generated.css). */
+const TONE: Record<PillTone, string> = {
+  green: 'success',
+  orange: 'warning',
+  red: 'danger',
+  blue: 'info',
+  gray: 'neutral',
+  teal: 'success',
 };
 
 /** Soft status pill — tinted background, leading dot, never uppercased or truncated. */
 export function StatusPill({ tone, children }: { tone: PillTone; children: ReactNode }) {
-  const color = TONE_COLOR[tone];
+  const g = TONE[tone];
   return (
     <span
       style={{
         display: 'inline-flex',
         alignItems: 'center',
         gap: 6,
-        padding: '2px 8px 2px 7px',
-        borderRadius: 999,
-        fontSize: 12,
-        fontWeight: 500,
-        lineHeight: '18px',
+        padding: '2px 10px 2px 8px',
+        borderRadius: 'var(--mantine-radius-xl)',
+        fontSize: 'var(--mantine-font-size-xs)',
+        fontWeight: 600,
+        lineHeight: '20px',
         whiteSpace: 'nowrap',
-        background: `var(--mantine-color-${color}-light)`,
-        color: `var(--mantine-color-${color}-light-color)`,
+        background: `var(--bp-status-${g}-bg)`,
+        color: `var(--bp-status-${g}-text)`,
       }}
     >
-      <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'currentColor', flexShrink: 0 }} />
+      <span style={{ width: 6, height: 6, borderRadius: '50%', background: `var(--bp-status-${g}-solid)`, flexShrink: 0 }} />
       {children}
     </span>
   );

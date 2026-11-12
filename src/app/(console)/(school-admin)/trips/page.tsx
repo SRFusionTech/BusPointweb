@@ -92,7 +92,7 @@ export default function TripHistoryPage() {
         <TextInput label="To" type="date" value={to} onChange={(e) => { setPage(1); setTo(e.currentTarget.value); }} w={160} />
       </Group>
 
-      {error && <Alert color="red" mb="md">{error}</Alert>}
+      {error && <Alert color="danger" mb="md">{error}</Alert>}
 
       <Paper withBorder radius="md">
         <Table.ScrollContainer minWidth={980}>

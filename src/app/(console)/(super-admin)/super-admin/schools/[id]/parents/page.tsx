@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useIdParam } from '@/components/console/StaticIdGate';
 import { useForm, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -251,7 +251,7 @@ function ParentModal({
               />
             </SimpleGrid>
             {classes.length === 0 && (
-              <Alert variant="light" color="orange" icon={<IconInfoCircle size={16} />} p="sm" mt="sm">
+              <Alert variant="light" color="warning" icon={<IconInfoCircle size={16} />} p="sm" mt="sm">
                 <Text size="xs">
                   No classes set up yet. A child’s class and section are required —{' '}
                   <Anchor component={Link} href={`/super-admin/schools/${schoolId}/classes`} size="xs">add classes &amp; sections</Anchor> first.
@@ -262,7 +262,7 @@ function ParentModal({
 
           <FormSection title="Pickup">
             {routes.length === 0 ? (
-              <Alert variant="light" color="orange" icon={<IconInfoCircle size={16} />} p="sm">
+              <Alert variant="light" color="warning" icon={<IconInfoCircle size={16} />} p="sm">
                 <Text size="xs">No routes with pickup points yet for this school. Add a route and its stops first — a parent needs a pickup point to be able to sign in.</Text>
               </Alert>
             ) : (
@@ -302,7 +302,7 @@ function ParentModal({
           )}
 
           {!isEdit && (
-            <Alert variant="light" color="blue" icon={<IconInfoCircle size={16} />} p="sm">
+            <Alert variant="light" color="info" icon={<IconInfoCircle size={16} />} p="sm">
               <Text size="xs">
                 The parent signs in to the mobile app with their phone number. A temporary password is
                 generated and shown once after you save.
@@ -523,7 +523,7 @@ function ParentDrawer({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SuperAdminSchoolParentsPage() {
-  const { id: schoolId } = useParams<{ id: string }>();
+  const schoolId = useIdParam();
 
   const [school, setSchool] = useState<SchoolSummary | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -771,7 +771,7 @@ export default function SuperAdminSchoolParentsPage() {
             label="Expiring this month"
             value={expiringThisMonth}
             icon={<IconCalendarDue size={20} />}
-            color="orange"
+            color="warning"
             loading={loading}
             hint={expiringThisMonth ? 'Renew before they lose access' : 'Nothing expiring this month'}
           />
@@ -818,7 +818,7 @@ export default function SuperAdminSchoolParentsPage() {
               )}
               <Menu.Divider />
               {p.isActive ? (
-                <Menu.Item color="red" leftSection={<IconUserOff size={16} />} onClick={() => handleToggleActive(p)}>Deactivate</Menu.Item>
+                <Menu.Item color="danger" leftSection={<IconUserOff size={16} />} onClick={() => handleToggleActive(p)}>Deactivate</Menu.Item>
               ) : (
                 <Menu.Item color="teal" leftSection={<IconPlayerPlay size={16} />} onClick={() => handleToggleActive(p)}>Reactivate</Menu.Item>
               )}

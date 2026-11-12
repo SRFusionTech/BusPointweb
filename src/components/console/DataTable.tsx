@@ -32,10 +32,8 @@ interface DataTableProps<T> {
 }
 
 const headerCell: CSSProperties = {
-  fontSize: 11,
+  fontSize: 'var(--mantine-font-size-xs)',
   fontWeight: 600,
-  textTransform: 'uppercase',
-  letterSpacing: '0.05em',
   color: 'var(--mantine-color-dimmed)',
   background: 'var(--mantine-color-default-hover)',
   whiteSpace: 'nowrap',

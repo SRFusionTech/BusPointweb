@@ -406,7 +406,7 @@ function AssignDriverModal({
         />
         <Group justify="space-between">
           {bus?.driver ? (
-            <Button variant="subtle" color="red" disabled={saving} onClick={() => run(() => api.buses.unassignDriver(bus.id), 'Driver unassigned.')}>
+            <Button variant="subtle" color="danger" disabled={saving} onClick={() => run(() => api.buses.unassignDriver(bus.id), 'Driver unassigned.')}>
               Unassign
             </Button>
           ) : <span />}
@@ -473,7 +473,7 @@ function BusDrawer({
           >
             {route ? (
               <Group gap="sm" wrap="nowrap">
-                <ThemeIcon variant="light" color="blue" size={32} radius="md"><IconRoute size={16} /></ThemeIcon>
+                <ThemeIcon variant="light" color="info" size={32} radius="md"><IconRoute size={16} /></ThemeIcon>
                 <div>
                   <Text size="sm" fw={500}>{route.name}</Text>
                   <Text size="xs" c="dimmed">{route.stopCount ?? 0} stops</Text>
@@ -502,7 +502,7 @@ function BusDrawer({
           </DetailSection>
 
           <Group justify="space-between" mt="sm">
-            <Button variant="subtle" color="red" leftSection={<IconTrash size={16} />} onClick={onRemove}>Remove bus</Button>
+            <Button variant="subtle" color="danger" leftSection={<IconTrash size={16} />} onClick={onRemove}>Remove bus</Button>
             <Button variant="default" leftSection={<IconEdit size={16} />} onClick={onEdit}>Edit details</Button>
           </Group>
         </Stack>
@@ -674,8 +674,8 @@ export default function BusesPage() {
           progress={total ? (ready / total) * 100 : 0}
           hint={total ? `${Math.round((ready / total) * 100)}% of fleet` : 'No buses yet'}
         />
-        <StatCard label="Missing a route" value={noRoute} icon={<IconRoute size={20} />} color="orange" loading={loading} hint={noRoute ? 'Assign from the table' : 'All buses routed'} />
-        <StatCard label="Missing a driver" value={noDriver} icon={<IconUserOff size={20} />} color="red" loading={loading} hint={noDriver ? 'Assign from the table' : 'All buses staffed'} />
+        <StatCard label="Missing a route" value={noRoute} icon={<IconRoute size={20} />} color="warning" loading={loading} hint={noRoute ? 'Assign from the table' : 'All buses routed'} />
+        <StatCard label="Missing a driver" value={noDriver} icon={<IconUserOff size={20} />} color="danger" loading={loading} hint={noDriver ? 'Assign from the table' : 'All buses staffed'} />
       </SimpleGrid>
 
       <DataTable
@@ -712,7 +712,7 @@ export default function BusesPage() {
               <Menu.Item leftSection={<IconRoute size={16} />} onClick={() => startAssignRoute(b)}>Assign route</Menu.Item>
               <Menu.Item leftSection={<IconUserCheck size={16} />} onClick={() => startAssignDriver(b)}>Assign driver</Menu.Item>
               <Menu.Divider />
-              <Menu.Item color="red" leftSection={<IconTrash size={16} />} onClick={() => startRemove(b)}>Remove bus</Menu.Item>
+              <Menu.Item color="danger" leftSection={<IconTrash size={16} />} onClick={() => startRemove(b)}>Remove bus</Menu.Item>
             </Menu.Dropdown>
           </Menu>
         )}

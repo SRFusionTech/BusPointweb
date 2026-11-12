@@ -99,7 +99,7 @@ function DriverModal({
             {...register('phone')}
           />
           {!isEdit && (
-            <Alert variant="light" color="blue" icon={<IconInfoCircle size={16} />} p="sm">
+            <Alert variant="light" color="info" icon={<IconInfoCircle size={16} />} p="sm">
               <Text size="xs">A temporary password is generated and shown once after you save.</Text>
             </Alert>
           )}
@@ -386,12 +386,12 @@ export default function DriversPage() {
           label="On a bus"
           value={onBus}
           icon={<IconBus size={20} />}
-          color="blue"
+          color="info"
           loading={loading}
           progress={active ? (onBus / active) * 100 : 0}
           hint={active ? `${Math.round((onBus / active) * 100)}% of active drivers` : '—'}
         />
-        <StatCard label="Unassigned" value={unassigned} icon={<IconUserOff size={20} />} color="orange" loading={loading} hint={unassigned ? 'Active, without a bus' : 'Everyone has a bus'} />
+        <StatCard label="Unassigned" value={unassigned} icon={<IconUserOff size={20} />} color="warning" loading={loading} hint={unassigned ? 'Active, without a bus' : 'Everyone has a bus'} />
       </SimpleGrid>
 
       <DataTable
@@ -428,7 +428,7 @@ export default function DriversPage() {
               <Menu.Item leftSection={<IconKey size={16} />} onClick={() => handleResetPassword(d)}>Reset password</Menu.Item>
               <Menu.Divider />
               {d.isActive ? (
-                <Menu.Item color="red" leftSection={<IconUserOff size={16} />} onClick={() => handleToggleActive(d)}>Deactivate</Menu.Item>
+                <Menu.Item color="danger" leftSection={<IconUserOff size={16} />} onClick={() => handleToggleActive(d)}>Deactivate</Menu.Item>
               ) : (
                 <Menu.Item color="teal" leftSection={<IconPlayerPlay size={16} />} onClick={() => handleToggleActive(d)}>Reactivate</Menu.Item>
               )}

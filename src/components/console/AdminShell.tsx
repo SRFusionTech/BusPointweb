@@ -4,19 +4,21 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   ActionIcon, AppShell, Avatar, Box, Burger, Container, Divider, Group, Input, Kbd, Menu, NavLink, ScrollArea,
-  Stack, Text, ThemeIcon, Tooltip, UnstyledButton, useComputedColorScheme, useMantineColorScheme,
+  Stack, Text, Tooltip, UnstyledButton, useComputedColorScheme, useMantineColorScheme,
 } from '@mantine/core';
 import { useDisclosure, useLocalStorage, useMediaQuery, useOs } from '@mantine/hooks';
 import { Spotlight, spotlight, type SpotlightActionGroupData } from '@mantine/spotlight';
 import { nprogress } from '@mantine/nprogress';
 import {
-  IconBus, IconKey, IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand, IconLogout, IconMoon, IconSearch,
+  IconKey, IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand, IconLogout, IconMoon, IconSearch,
   IconSelector, IconSun, IconUser,
 } from '@tabler/icons-react';
 import { useAuthStore } from '@/stores/auth.store';
 import { useUiStore } from '@/stores/ui.store';
 import { api } from '@/lib/api';
 import { ColorSchemeToggle } from './ColorSchemeToggle';
+import { NavBadge } from './NavBadge';
+import { Logo, LogoMark } from '@/components/brand/Logo';
 import type { NavItem, NavSection } from './nav-items';
 
 interface Props {
@@ -136,6 +138,7 @@ export function AdminShell({ nav, showAccountLinks = true, children }: Props) {
         href={item.href}
         label={item.label}
         leftSection={<item.icon size={18} stroke={1.75} />}
+        rightSection={item.badge ? <NavBadge kind={item.badge} /> : undefined}
         active={active}
         onClick={closeMobile}
         variant="light"
@@ -149,7 +152,7 @@ export function AdminShell({ nav, showAccountLinks = true, children }: Props) {
       <Menu.Target>
         <UnstyledButton aria-label="Account menu" w={rail ? undefined : '100%'} p={rail ? 0 : 'xs'}>
           <Group gap="sm" wrap="nowrap">
-            <Avatar name={displayName} color="initials" variant="filled" radius="xl" size={34} />
+            <Avatar name={displayName} color="brass" variant="filled" radius="xl" size={34} />
             {!rail && (
               <>
                 <Box miw={0} flex={1}>
@@ -173,7 +176,7 @@ export function AdminShell({ nav, showAccountLinks = true, children }: Props) {
           </>
         )}
         <Menu.Divider />
-        <Menu.Item color="red" leftSection={<IconLogout size={16} />} onClick={handleLogout}>Log out</Menu.Item>
+        <Menu.Item color="danger" leftSection={<IconLogout size={16} />} onClick={handleLogout}>Log out</Menu.Item>
       </Menu.Dropdown>
     </Menu>
   );
@@ -187,39 +190,49 @@ export function AdminShell({ nav, showAccountLinks = true, children }: Props) {
     >
       {/* ── Sidebar ── */}
       <AppShell.Navbar p="sm" data-app-sidebar data-mantine-color-scheme="dark">
-        <AppShell.Section h={HEADER_HEIGHT - 12} mb="sm">
+        <AppShell.Section h={HEADER_HEIGHT - 8} mb="xs">
           <Group h="100%" gap="sm" wrap="nowrap" justify={rail ? 'center' : 'space-between'} px={rail ? 0 : 'xs'}>
-            <Group gap="sm" wrap="nowrap" miw={0}>
-              {school ? (
-                <Tooltip label={school.name} position="right" disabled={!rail}>
-                  <Avatar
-                    src={school.logoUrl}
-                    name={school.name}
-                    color="initials"
-                    variant="filled"
-                    radius="md"
-                    size={34}
-                    alt={school.name}
-                    styles={{ image: { objectFit: 'contain', background: 'white' } }}
-                  />
-                </Tooltip>
-              ) : (
-                <ThemeIcon size={34} radius="md"><IconBus size={18} /></ThemeIcon>
-              )}
-              {!rail && (
-                <Box miw={0}>
-                  <Text fw={700} size="sm" lh={1.25} truncate="end" title={school?.name}>
-                    {school?.name ?? 'BusPoint'}
-                  </Text>
-                  <Text size="xs" c="dimmed" lh={1.25} truncate="end">
-                    {school ? 'School admin · BusPoint' : roleLabel}
-                  </Text>
-                </Box>
-              )}
-            </Group>
+            <Link href={nav[0]?.items[0]?.href ?? '/'} aria-label="BusPoint home" style={{ color: 'var(--bp-text-on-brand)', display: 'inline-flex' }}>
+              {rail ? <LogoMark size={30} /> : <Logo size={28} />}
+            </Link>
             <Burger opened={mobileOpen} onClick={toggleMobile} hiddenFrom="sm" size="sm" aria-label="Close navigation" />
           </Group>
         </AppShell.Section>
+
+        {school && (
+          <AppShell.Section mb="md">
+            <Tooltip label={school.name} position="right" disabled={!rail}>
+              <Group
+                gap="sm"
+                wrap="nowrap"
+                justify={rail ? 'center' : 'flex-start'}
+                p={rail ? 4 : 'xs'}
+                style={{ borderRadius: 'var(--mantine-radius-md)', background: 'var(--bp-bg-brand-deep)' }}
+              >
+                <Avatar
+                  src={school.logoUrl}
+                  name={school.name}
+                  color="brass"
+                  variant="filled"
+                  radius="md"
+                  size={32}
+                  alt={school.name}
+                  styles={{ image: { objectFit: 'contain', background: 'var(--bp-bg-surface)' } }}
+                />
+                {!rail && (
+                  <Box miw={0}>
+                    <Text fw={600} size="sm" lh={1.25} truncate="end" title={school.name}>
+                      {school.name}
+                    </Text>
+                    <Text size="xs" c="dimmed" lh={1.25}>
+                      School admin
+                    </Text>
+                  </Box>
+                )}
+              </Group>
+            </Tooltip>
+          </AppShell.Section>
+        )}
 
         <AppShell.Section grow component={ScrollArea} mx="-sm" px="sm">
           <Stack gap="lg">
@@ -242,11 +255,13 @@ export function AdminShell({ nav, showAccountLinks = true, children }: Props) {
       </AppShell.Navbar>
 
       {/* ── Header ── */}
-      <AppShell.Header bg="var(--app-chrome)">
+      <AppShell.Header data-app-header>
         <Group h="100%" px={{ base: 'sm', sm: 'md' }} justify="space-between" wrap="nowrap">
           <Group gap="xs" wrap="nowrap">
             <Burger opened={mobileOpen} onClick={toggleMobile} hiddenFrom="sm" size="sm" aria-label="Open navigation" />
-            <ThemeIcon hiddenFrom="sm" size={28} radius="md"><IconBus size={16} /></ThemeIcon>
+            <Box hiddenFrom="sm" c="var(--bp-text-brand)" style={{ display: 'inline-flex' }}>
+              <LogoMark size={26} />
+            </Box>
             <Tooltip label={rail ? 'Expand sidebar' : 'Collapse sidebar'}>
               <ActionIcon
                 visibleFrom="sm"
@@ -284,7 +299,7 @@ export function AdminShell({ nav, showAccountLinks = true, children }: Props) {
         </Group>
       </AppShell.Header>
 
-      {/* ── Content: white cards on a gray page ── */}
+      {/* ── Content: surface cards on the canvas ── */}
       <AppShell.Main bg="var(--app-body)" mih="100dvh">
         <Container size="xl" px={{ base: 'md', md: 'xl' }} py={{ base: 'md', md: 'xl' }}>{children}</Container>
       </AppShell.Main>

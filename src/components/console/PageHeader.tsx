@@ -32,7 +32,13 @@ export function PageHeader({ title, description, breadcrumbs, actions, leading }
         <Group gap="md" wrap="nowrap" miw={0}>
           {leading}
           <Box miw={0}>
-            {typeof title === 'string' ? <Title order={2} fw={600}>{title}</Title> : title}
+            {typeof title === 'string' ? (
+              <Title order={1} className="font-display" fz="h2" lh={1.2}>
+                {title}
+              </Title>
+            ) : (
+              title
+            )}
             {description && <Text component="div" c="dimmed" size="sm" mt={4} lineClamp={2}>{description}</Text>}
           </Box>
         </Group>

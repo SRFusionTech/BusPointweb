@@ -162,7 +162,7 @@ function ClassModal({
             )}
           />
           {isEdit && (
-            <Alert variant="light" color="blue" icon={<IconInfoCircle size={16} />} p="sm">
+            <Alert variant="light" color="info" icon={<IconInfoCircle size={16} />} p="sm">
               <Text size="xs">
                 A section that still has parents assigned can’t be removed — move those parents first.
               </Text>
@@ -315,7 +315,7 @@ export function ClassesManager({
                 </Menu.Item>
                 <Menu.Divider />
                 <Menu.Item
-                  color="red"
+                  color="danger"
                   leftSection={<IconTrash size={16} />}
                   onClick={() => { setTarget(c); openConfirm(); }}
                 >

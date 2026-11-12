@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
+import { useIdParam } from '@/components/console/StaticIdGate';
 import {
   ActionIcon, Alert, Badge, Box, Button, Group, Loader, Menu, Paper, Stack, Text, TextInput, Title, Tooltip,
 } from '@mantine/core';
@@ -14,6 +15,7 @@ import {
 import { api, type MySchool, type RouteDetail } from '@/lib/api';
 import { notify, errorMessage } from '@/lib/notify';
 import { AddressAutocomplete, loadGoogleMaps } from '@/components/console/AddressAutocomplete';
+import { usePalette } from '@/theme/usePalette';
 import { ConfirmDialog } from '@/components/console/ConfirmDialog';
 import { computeRoadRoute, formatDuration, type LatLng, type RoadRoute } from '@/lib/roadRoute';
 import './route-editor.css';
@@ -42,7 +44,8 @@ type Selection = 'school' | 'end' | string | null;
 
 const LAST_STOP = 'Last Stop';
 const AUTO_NAME = /^Stop \d+$/;
-const COLORS = { school: '#0f172a', stop: '#2563eb', end: '#dc2626', selected: '#f59e0b' };
+/** DOM badges (CSS variables from the token stylesheet). Map markers use usePalette() for real color strings. */
+const COLORS = { school: 'var(--bp-live-school)', stop: 'var(--bp-live-route)', end: 'var(--bp-status-danger-solid)' };
 
 const stopName = (s: DraftStop, i: number) => (s.autoName ? `Stop ${i + 1}` : s.name);
 const newKey = () => `new-${Math.random().toString(36).slice(2, 10)}`;
@@ -187,6 +190,12 @@ function RouteMap({
   const handlersRef = useRef({ onPick, onSelect, onMove });
   const pointsRef = useRef(points);
   const [status, setStatus] = useState<'loading' | 'ready' | 'failed'>('loading');
+  const { colors: c, mapStyle, scheme } = usePalette();
+  const MAP = { school: c.live.school, stop: c.live.route, end: c.status.danger.solid, selected: c.accent.premium, ring: c.live.markerRing, onDot: c.text.onBrand };
+
+  useEffect(() => {
+    if (status === 'ready') mapRef.current?.setOptions({ styles: mapStyle });
+  }, [mapStyle, status]);
 
   useEffect(() => { handlersRef.current = { onPick, onSelect, onMove }; });
   useEffect(() => { pointsRef.current = points; }, [points]);
@@ -203,8 +212,10 @@ function RouteMap({
       ]);
       if (cancelled || !containerRef.current) return;
       const map = new google.maps.Map(containerRef.current, {
-        center: { lat: 17.385, lng: 78.4867 },
-        zoom: 12,
+        // No hard-coded city: the editor frames the school / stops once they load.
+        center: { lat: 0, lng: 0 },
+        zoom: 2,
+        styles: mapStyle,
         mapTypeControl: false,
         streetViewControl: false,
         fullscreenControl: false,
@@ -239,13 +250,13 @@ function RouteMap({
         title: p.title,
         draggable: p.kind !== 'school',
         zIndex: isSelected ? 1000 : p.kind === 'school' ? 900 : 100,
-        label: { text: p.label, color: '#fff', fontSize: '11px', fontWeight: '700' },
+        label: { text: p.label, color: MAP.onDot, fontSize: '11px', fontWeight: '700' },
         icon: {
           path: google.maps.SymbolPath.CIRCLE,
           scale: isSelected ? 15 : 12,
-          fillColor: COLORS[p.kind],
+          fillColor: MAP[p.kind],
           fillOpacity: 1,
-          strokeColor: isSelected ? COLORS.selected : '#ffffff',
+          strokeColor: isSelected ? MAP.selected : MAP.ring,
           strokeWeight: 3,
         },
       });
@@ -256,7 +267,8 @@ function RouteMap({
       });
       return marker;
     });
-  }, [points, selected, status]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [points, selected, status, scheme]);
 
   // Route line: road path with a white casing (Google-Maps style), or faint straight lines as a fallback
   useEffect(() => {
@@ -267,22 +279,22 @@ function RouteMap({
     if (points.length < 2) return;
 
     const arrows = [{
-      icon: { path: google.maps.SymbolPath.FORWARD_OPEN_ARROW, scale: 2.5, strokeColor: '#ffffff', strokeWeight: 2.5 },
+      icon: { path: google.maps.SymbolPath.FORWARD_OPEN_ARROW, scale: 2.5, strokeColor: MAP.ring, strokeWeight: 2.5 },
       offset: '60px',
       repeat: '110px',
     }];
 
     if (roadPath && roadPath.length > 1) {
       linesRef.current = [
-        new google.maps.Polyline({ map, path: roadPath, strokeColor: '#ffffff', strokeOpacity: 1, strokeWeight: 15, clickable: false, zIndex: 1 }),
-        new google.maps.Polyline({ map, path: roadPath, strokeColor: COLORS.stop, strokeOpacity: 1, strokeWeight: 10, clickable: false, zIndex: 2, icons: arrows }),
+        new google.maps.Polyline({ map, path: roadPath, strokeColor: MAP.ring, strokeOpacity: 1, strokeWeight: 15, clickable: false, zIndex: 1 }),
+        new google.maps.Polyline({ map, path: roadPath, strokeColor: MAP.stop, strokeOpacity: 1, strokeWeight: 10, clickable: false, zIndex: 2, icons: arrows }),
       ];
     } else {
       linesRef.current = [
         new google.maps.Polyline({
           map,
           path: points.map((p) => ({ lat: p.lat, lng: p.lng })),
-          strokeColor: COLORS.stop,
+          strokeColor: MAP.stop,
           strokeOpacity: 0.7,
           strokeWeight: 6,
           clickable: false,
@@ -291,7 +303,8 @@ function RouteMap({
         }),
       ];
     }
-  }, [points, roadPath, status]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [points, roadPath, status, scheme]);
 
   // Fit everything in view (first load + "Fit route" button)
   useEffect(() => {
@@ -394,7 +407,7 @@ function RouteName({ name, onRename }: { name: string; onRename: (name: string) 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function RouteEditorPage() {
-  const { id } = useParams<{ id: string }>();
+  const id = useIdParam();
   const router = useRouter();
 
   const [route, setRoute] = useState<RouteDetail | null>(null);
@@ -641,7 +654,7 @@ export default function RouteEditorPage() {
           </Text>
         </Box>
         <Group gap="sm">
-          {dirty && <Badge variant="dot" color="orange" size="lg">Unsaved changes</Badge>}
+          {dirty && <Badge variant="dot" color="warning" size="lg">Unsaved changes</Badge>}
           {dirty && <Button variant="default" onClick={discard} disabled={saving}>Discard</Button>}
           <Button
             leftSection={<IconDeviceFloppy size={16} />}
@@ -665,7 +678,7 @@ export default function RouteEditorPage() {
           </Group>
 
           {schoolLocated === false && (
-            <Alert color="orange" variant="light" m="sm" mb={0} title="School location missing">
+            <Alert color="warning" variant="light" m="sm" mb={0} title="School location missing">
               We couldn’t find your school on the map, so routes can’t start from it yet. Contact BusPoint support to set it.
             </Alert>
           )}
@@ -749,7 +762,7 @@ export default function RouteEditorPage() {
                       <Menu.Item leftSection={<IconArrowUp size={16} />} disabled={i === 0} onClick={() => reorder(s.key, i - 1)}>Move up</Menu.Item>
                       <Menu.Item leftSection={<IconArrowDown size={16} />} disabled={i === stops.length - 1} onClick={() => reorder(s.key, i + 1)}>Move down</Menu.Item>
                       <Menu.Divider />
-                      <Menu.Item color="red" leftSection={<IconTrash size={16} />} onClick={() => removeStop(s.key)}>Remove stop</Menu.Item>
+                      <Menu.Item color="danger" leftSection={<IconTrash size={16} />} onClick={() => removeStop(s.key)}>Remove stop</Menu.Item>
                     </Menu.Dropdown>
                   </Menu>
                 </div>

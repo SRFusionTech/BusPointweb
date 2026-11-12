@@ -13,7 +13,7 @@
 
 import { useAuthStore, type AuthTokens } from '@/stores/auth.store';
 
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
+import { API_BASE as BASE } from './apiBase';
 
 // Refresh if the access token expires within the next 60 seconds
 const PROACTIVE_REFRESH_BUFFER_MS = 60_000;
@@ -22,6 +22,7 @@ export interface ApiResult<T> {
   success: boolean;
   message: string;
   data: T;
+  meta?: { page: number; limit: number; total: number; totalPages: number };
 }
 
 /** Thrown by `request()` on a non-OK response. Carries the HTTP status so callers can
@@ -178,6 +179,39 @@ export interface SchoolSettings {
   planExpiresAt: string | null;
   /** Plans available for assignment (returned by GET settings only). */
   availablePlans?: PlanSummary[];
+}
+
+// ─── Demo requests (marketing funnel → super admin) ──────────────────────────
+export type DemoRequestStatus = 'new' | 'contacted' | 'demo_scheduled' | 'won' | 'lost';
+
+export interface DemoRequest {
+  id: string;
+  schoolName: string;
+  city: string;
+  country: string;
+  schoolType: string | null;
+  studentRange: string | null;
+  busRange: string | null;
+  website: string | null;
+  contactName: string;
+  contactRole: string;
+  email: string;
+  phone: string;
+  preferredContact: string | null;
+  preferredTime: string | null;
+  message: string | null;
+  status: DemoRequestStatus;
+  notes: string | null;
+  assignedTo: string | null;
+  source: string | null;
+  utm: Record<string, string> | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DemoRequestStats {
+  total: number;
+  byStatus: Record<DemoRequestStatus, number>;
 }
 
 // ─── School-admin domain types ────────────────────────────────────────────────
@@ -347,6 +381,19 @@ export const api = {
 
     remove: (id: string) =>
       request<null>(`/plans/${id}`, { method: 'DELETE' }),
+  },
+
+  demoRequests: {
+    list: (q: { status?: DemoRequestStatus; q?: string; page?: number; limit?: number } = {}) => {
+      const params = new URLSearchParams();
+      for (const [k, v] of Object.entries(q)) if (v !== undefined && v !== '') params.set(k, String(v));
+      const qs = params.toString();
+      return request<DemoRequest[]>(`/demo-requests${qs ? `?${qs}` : ''}`);
+    },
+    stats: () => request<DemoRequestStats>('/demo-requests/stats'),
+    get: (id: string) => request<DemoRequest>(`/demo-requests/${id}`),
+    update: (id: string, body: { status?: DemoRequestStatus; notes?: string; assignedTo?: string }) =>
+      request<DemoRequest>(`/demo-requests/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   },
 
   buses: {

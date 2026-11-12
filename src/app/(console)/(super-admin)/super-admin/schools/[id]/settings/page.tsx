@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useIdParam } from '@/components/console/StaticIdGate';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -68,7 +68,7 @@ function isExpired(dateStr: string | null): boolean {
 }
 
 export default function SchoolSettingsPage() {
-  const { id } = useParams<{ id: string }>();
+  const id = useIdParam();
   const [school, setSchool] = useState<SchoolSummary | null>(null);
   const [availablePlans, setAvailablePlans] = useState<PlanSummary[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -314,7 +314,7 @@ export default function SchoolSettingsPage() {
               <Card padding="sm">
                 <Card.Section inheritPadding py="sm">
                   <Group justify="flex-end">
-                    {isDirty && <Badge color="yellow" variant="light" mr="auto">Unsaved changes</Badge>}
+                    {isDirty && <Badge color="warning" variant="light" mr="auto">Unsaved changes</Badge>}
                     <Button variant="default" onClick={() => reset()} disabled={!isDirty || isSubmitting}>Discard</Button>
                     <Button type="submit" loading={isSubmitting} disabled={!isDirty}>Save changes</Button>
                   </Group>

@@ -45,9 +45,11 @@ interface Props {
   onClose: () => void;
   onCreated: () => void;
   plans?: PlanSummary[];
+  /** Prefill (e.g. converting a demo request into a school). */
+  initialValues?: Partial<FormValues>;
 }
 
-export function AddSchoolModal({ opened, onClose, onCreated, plans = [] }: Props) {
+export function AddSchoolModal({ opened, onClose, onCreated, plans = [], initialValues }: Props) {
   const {
     register,
     control,
@@ -70,8 +72,8 @@ export function AddSchoolModal({ opened, onClose, onCreated, plans = [] }: Props
 
   // Fresh form (with a generated password) every time the modal opens
   useEffect(() => {
-    if (opened) reset({ ...EMPTY, adminPassword: generatePassword() });
-  }, [opened, reset]);
+    if (opened) reset({ ...EMPTY, ...initialValues, adminPassword: generatePassword() });
+  }, [opened, reset, initialValues]);
 
   function handleRegenerate() {
     setValue('adminPassword', generatePassword(), { shouldValidate: true });

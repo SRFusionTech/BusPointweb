@@ -48,20 +48,20 @@ export function BusTripDetails({ item, skewMs, now, onUpdated }: { item: FleetBu
       {alerts && (alerts.sos || alerts.gpsLost || alerts.stationary || alerts.checkIn) && (
         <Stack gap="xs" mb="md">
           {alerts.sos && (
-            <Alert color="red" variant={alerts.sos.acknowledgedAt ? 'light' : 'filled'} title={`SOS at ${fmtTime(alerts.sos.at)}`}>
+            <Alert color="danger" variant={alerts.sos.acknowledgedAt ? 'light' : 'filled'} title={`SOS at ${fmtTime(alerts.sos.at)}`}>
               <Group justify="space-between" wrap="wrap">
                 <Text size="sm">
                   {alerts.sos.note ?? 'Driver pressed SOS.'} Driver: {item.driver?.fullName ?? '—'} {item.driver?.phone ? `· ${item.driver.phone}` : ''}
                   {alerts.sos.acknowledgedAt ? ` · Acknowledged ${fmtTime(alerts.sos.acknowledgedAt)}` : ''}
                 </Text>
                 {!alerts.sos.acknowledgedAt && (
-                  <Button size="xs" color="dark" loading={acking === 'sos'} onClick={() => void ack('sos')}>Acknowledge SOS</Button>
+                  <Button size="xs" color="navy" loading={acking === 'sos'} onClick={() => void ack('sos')}>Acknowledge SOS</Button>
                 )}
               </Group>
             </Alert>
           )}
           {(alerts.gpsLost || alerts.stationary) && (
-            <Alert color="orange" title="Alerts">
+            <Alert color="warning" title="Alerts">
               <Group justify="space-between" wrap="wrap">
                 <Stack gap={2}>
                   {alerts.gpsLost && <Text size="sm">GPS lost since {fmtTime(alerts.gpsLost.since)}{alerts.gpsLost.acknowledgedAt ? ' · seen' : ''}</Text>}
