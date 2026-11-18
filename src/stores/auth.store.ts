@@ -22,8 +22,10 @@ export interface AuthUser {
 export interface AuthTokens {
   accessToken: string;
   refreshToken: string;
-  /** Unix ms timestamp when the access token expires */
+  /** Unix ms timestamp when the access token expires (server clock) */
   accessTokenExpiresAt: number;
+  /** Seconds until the access token expires (newer backends) — preferred, immune to a wrong PC clock */
+  accessTokenExpiresIn?: number;
 }
 
 interface AuthState {
@@ -47,8 +49,14 @@ export const useAuthStore = create<AuthState>()(
       refreshToken: null,
       accessTokenExpiresAt: null,
       setUser: (user) => set({ user }),
-      setTokens: ({ accessToken, refreshToken, accessTokenExpiresAt }) =>
-        set({ accessToken, refreshToken, accessTokenExpiresAt }),
+      // Expiry on THIS computer's clock: a clock a few minutes fast used to make every request
+      // refresh first (far more token rotations).
+      setTokens: ({ accessToken, refreshToken, accessTokenExpiresAt, accessTokenExpiresIn }) =>
+        set({
+          accessToken,
+          refreshToken,
+          accessTokenExpiresAt: typeof accessTokenExpiresIn === 'number' ? Date.now() + accessTokenExpiresIn * 1000 : accessTokenExpiresAt,
+        }),
       logout: () =>
         set({ user: null, accessToken: null, refreshToken: null, accessTokenExpiresAt: null }),
     }),

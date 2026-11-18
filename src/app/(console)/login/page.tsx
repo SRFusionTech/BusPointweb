@@ -165,8 +165,8 @@ export default function LoginPage() {
         return;
       }
 
-      const { role, email: userEmail, accessToken, refreshToken, accessTokenExpiresAt } = json.data;
-      setTokens({ accessToken, refreshToken, accessTokenExpiresAt });
+      const { role, email: userEmail, accessToken, refreshToken, accessTokenExpiresAt, accessTokenExpiresIn } = json.data;
+      setTokens({ accessToken, refreshToken, accessTokenExpiresAt, accessTokenExpiresIn });
       setUser({ email: userEmail, role });
 
       // Stays visible until the destination's AuthGuard finishes (it hides it)
